@@ -275,7 +275,7 @@ func (sc snapperContext) customChangesStatus(volPath string, merge *Merge, outpu
 }
 
 // applyCustomChanges reads the given status file and applies reported changes in to the target destination.
-// This method is the responsible of applying customizations to the new volume
+// This method is responsible for applying customizations to the new volume
 func (sc snapperContext) applyCustomChanges(status, rwVolPath string, merge *Merge) (err error) {
 	sc.s.Logger().Debug("rw volume path: %s", rwVolPath)
 	statusF, err := sc.s.FS().OpenFile(status, os.O_RDONLY, vfs.FilePerm)
