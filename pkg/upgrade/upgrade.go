@@ -19,7 +19,9 @@ package upgrade
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -40,6 +42,7 @@ const configFile = "/etc/elemental/config.sh"
 
 type Interface interface {
 	Upgrade(*deployment.Deployment) error
+	SetUnpackOpts(opts ...unpack.Opt)
 }
 
 type Option func(*Upgrader)
@@ -100,12 +103,22 @@ func New(ctx context.Context, s *sys.System, opts ...Option) *Upgrader {
 	return up
 }
 
+// SetUnpackOpts defines the unpacker options the upgrader will use for
+// the upgrade process.
+func (u *Upgrader) SetUnpackOpts(opts ...unpack.Opt) {
+	u.unpackOpts = opts
+}
+
 //nolint:gocyclo
 func (u Upgrader) Upgrade(d *deployment.Deployment) (err error) {
 	cleanup := cleanstack.NewCleanStack()
 	defer func() { err = cleanup.Cleanup(err) }()
 
 	var uh transaction.UpgradeHelper
+	esp := d.GetEfiPartition()
+	if esp == nil {
+		return fmt.Errorf("no esp partition defined in deployment: %w", errors.ErrUnsupported)
+	}
 
 	uh, err = u.t.Init(*d)
 	if err != nil {
@@ -182,7 +195,8 @@ func (u Upgrader) Upgrade(d *deployment.Deployment) (err error) {
 
 	kernelCmdline := strings.TrimSpace(fmt.Sprintf("%s %s %s", d.BaseKernelCmdline(), uh.GenerateKernelCmdline(trans), cmdline))
 
-	err = u.b.Install(trans.Path, strconv.Itoa(trans.ID), kernelCmdline, d)
+	espDir := filepath.Join(trans.Path, esp.MountPoint)
+	err = u.b.Install(trans.Path, espDir, esp.Label, strconv.Itoa(trans.ID), kernelCmdline)
 	if err != nil {
 		return fmt.Errorf("installing bootloader: %w", err)
 	}
@@ -204,7 +218,7 @@ func (u Upgrader) Upgrade(d *deployment.Deployment) (err error) {
 		return fmt.Errorf("get active snapshots: %w", err)
 	}
 
-	return u.b.Prune(trans.Path, snapshots, d)
+	return u.b.Prune(trans.Path, espDir, esp.Label, snapshots)
 }
 
 func (u Upgrader) configHook(config string, root string) error {
