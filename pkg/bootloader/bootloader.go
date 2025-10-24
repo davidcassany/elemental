@@ -21,14 +21,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/suse/elemental/v3/pkg/deployment"
 	"github.com/suse/elemental/v3/pkg/sys"
 )
 
 type Bootloader interface {
-	Install(rootPath, snapshotID, kernelCmdline string, d *deployment.Deployment) error
-	InstallLive(rootPath, target, kernelCmdline string) error
-	Prune(rootPath string, keepSnapshotIDs []int, d *deployment.Deployment) error
+	Install(rootPath, espDir, espLabel, entryID, kernelCmdline string) error
+	InstallLive(rootPath, espDir, kernelCmdline string) error
+	Prune(rootPath, espDir, espLabel string, keepEntryIDs []int) error
+	AddBootEntry(espDir, baseID, newID, kernelCmdline string) error
 }
 
 const (
@@ -44,7 +44,7 @@ func NewNone(s *sys.System) *None {
 	return &None{s}
 }
 
-func (n *None) Install(_, _, _ string, _ *deployment.Deployment) error {
+func (n *None) Install(_, _, _, _, _ string) error {
 	n.s.Logger().Info("Skipping bootloader installation")
 	return nil
 }
@@ -54,7 +54,12 @@ func (n *None) InstallLive(_, _, _ string) error {
 	return nil
 }
 
-func (n *None) Prune(_ string, _ []int, _ *deployment.Deployment) error {
+func (n *None) Prune(_, _, _ string, _ []int) error {
+	n.s.Logger().Info("Skipping bootloader pruning")
+	return nil
+}
+
+func (n *None) AddBootEntry(_, _, _, _ string) error {
 	n.s.Logger().Info("Skipping bootloader pruning")
 	return nil
 }

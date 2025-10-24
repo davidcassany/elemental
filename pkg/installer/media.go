@@ -48,10 +48,11 @@ const (
 	cfgScript      = "setup.sh"
 	xorriso        = "xorriso"
 
-	LiveMountPoint = "/run/initramfs/live"
-	SquashfsPath   = LiveMountPoint + "/" + liveDir + "/" + squashfsImg
-	InstallDesc    = LiveMountPoint + "/" + installDir + "/" + installCfg
-	InstallScript  = LiveMountPoint + "/" + installDir + "/" + cfgScript
+	LiveMountPoint  = "/run/initramfs/live"
+	SquashfsRelPath = liveDir + "/" + squashfsImg
+	SquashfsPath    = LiveMountPoint + "/" + SquashfsRelPath
+	InstallDesc     = LiveMountPoint + "/" + installDir + "/" + installCfg
+	InstallScript   = LiveMountPoint + "/" + installDir + "/" + cfgScript
 )
 
 type Option func(*ISO)
@@ -194,8 +195,6 @@ func (i *ISO) PrepareInstallerFS(rootDir, workDir string, d *deployment.Deployme
 			return fmt.Errorf("failed creating image (%s) for live ISO: %w", squashImg, err)
 		}
 	}
-	// Store the deployment with the OS image we just created/copied
-	d.SourceOS = deployment.NewRawSrc(SquashfsPath)
 
 	if d.Installer.CfgScript != "" {
 		err = vfs.CopyFile(i.s.FS(), d.Installer.CfgScript, filepath.Join(imgDir, cfgScript))
@@ -212,7 +211,7 @@ func (i *ISO) PrepareInstallerFS(rootDir, workDir string, d *deployment.Deployme
 		if err != nil {
 			return fmt.Errorf("could not initate overlay unpacker: %w", err)
 		}
-		_, err = unpacker.Unpack(i.ctx, rootDir)
+		_, err = unpacker.Unpack(i.ctx, rootDir, reservedPaths()...)
 		if err != nil {
 			return fmt.Errorf("overlay unpack failed: %w", err)
 		}
@@ -291,7 +290,7 @@ func (i *ISO) Customize(d *deployment.Deployment) (err error) {
 		return fmt.Errorf("failed adding installation assets and configuration: %w", err)
 	}
 
-	m[assetsPath] = "/Install"
+	m[assetsPath] = filepath.Join("/", installDir)
 
 	return i.mapFiles(i.InputFile, i.outputFile, m)
 }
@@ -412,12 +411,6 @@ func (i ISO) prepareISO(isoDir, rootfs string, d *deployment.Deployment) error {
 		return fmt.Errorf("failed to populate ISO directory tree: %w", err)
 	}
 
-	bootPath := filepath.Join(isoDir, "boot")
-	err = vfs.MkdirAll(i.s.FS(), bootPath, vfs.DirPerm)
-	if err != nil {
-		return fmt.Errorf("failed preparing ISO, could not create %s: %w", bootPath, err)
-	}
-
 	cmdline := strings.TrimSpace(fmt.Sprintf("%s %s", deployment.LiveKernelCmdline(i.Label), d.Installer.KernelCmdline))
 	err = i.bl.InstallLive(rootfs, isoDir, cmdline)
 	if err != nil {
@@ -477,6 +470,35 @@ func (i ISO) addInstallationAssets(root string, d *deployment.Deployment) error 
 		}
 	}
 
+	recPart := d.GetRecoveryPartition()
+	if recPart != nil {
+		size, err := vfs.DirSizeMB(i.s.FS(), root)
+		if err != nil {
+			return fmt.Errorf("failed to compute recovery partition size: %w", err)
+		}
+		recSize := deployment.MiB((size/128)*128 + 256)
+		i.s.Logger().Debug("Setting recovery partition size to %dMiB", recSize)
+		recPart.Size = recSize
+	}
+
+	return i.writeInstallDescription(installPath, d)
+}
+
+// writeInstallDescription writes the installation yaml file embedded in installer media
+// witht he installer assets related to the live system mountpoint.
+func (i ISO) writeInstallDescription(installPath string, d *deployment.Deployment) error {
+	// Keep original data as the deployment could still be used later stages
+	// here we want to store it from live installer PoV
+	source := d.SourceOS
+	script := d.Installer.CfgScript
+	overlay := d.Installer.OverlayTree
+
+	d.SourceOS = deployment.NewRawSrc(SquashfsPath)
+	if d.Installer.CfgScript != "" {
+		d.Installer.CfgScript = filepath.Join(LiveMountPoint, liveDir, cfgScript)
+	}
+	d.Installer.OverlayTree = deployment.NewDirSrc(LiveMountPoint)
+
 	installFile := filepath.Join(installPath, installCfg)
 	dBytes, err := yaml.Marshal(d)
 	if err != nil {
@@ -487,6 +509,11 @@ func (i ISO) addInstallationAssets(root string, d *deployment.Deployment) error 
 	if err != nil {
 		return fmt.Errorf("writing deployment file '%s': %w", installFile, err)
 	}
+
+	// Restore originial values
+	d.SourceOS = source
+	d.Installer.CfgScript = script
+	d.Installer.OverlayTree = overlay
 
 	return nil
 }
@@ -551,4 +578,9 @@ func calcFileChecksum(fs vfs.FS, fileName string) (string, error) {
 	}
 
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+// reservedPaths returns an array of the paths which can't be overlayed
+func reservedPaths() []string {
+	return []string{liveDir, installDir, "EFI", "boot"}
 }

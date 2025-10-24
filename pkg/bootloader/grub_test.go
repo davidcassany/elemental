@@ -27,12 +27,30 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/suse/elemental/v3/pkg/bootloader"
-	"github.com/suse/elemental/v3/pkg/deployment"
 	"github.com/suse/elemental/v3/pkg/log"
 	"github.com/suse/elemental/v3/pkg/sys"
 	sysmock "github.com/suse/elemental/v3/pkg/sys/mock"
 	"github.com/suse/elemental/v3/pkg/sys/vfs"
 )
+
+const lsblkEsp = `{
+   "blockdevices": [
+      {
+         "label": "EFI",
+         "partlabel": "efi",
+         "uuid": "236dacf0",
+         "size": 272629760,
+         "fstype": "vfat",
+         "mountpoints": [
+             "/boot"
+         ],
+         "path": "/dev/sda1",
+         "pkname": "/dev/sda",
+         "type": "part"
+      }
+   ]
+}
+`
 
 var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 	var tfs vfs.FS
@@ -42,7 +60,6 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 	var runner *sysmock.Runner
 	var syscall *sysmock.Syscall
 	var mounter *sysmock.Mounter
-	var d *deployment.Deployment
 	BeforeEach(func() {
 		var err error
 		tfs, cleanup, err = sysmock.TestFS(map[string]any{
@@ -81,27 +98,11 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 				return nil, nil
 			case "rsync":
 				return nil, nil
+			case "lsblk":
+				return []byte(lsblkEsp), nil
 			}
 
 			return nil, fmt.Errorf("command '%s', %w", command, errors.ErrUnsupported)
-		}
-
-		esp := &deployment.Partition{
-			Role:       deployment.EFI,
-			MountPoint: "/boot",
-		}
-
-		sysPart := &deployment.Partition{
-			Role:       deployment.System,
-			MountPoint: "/",
-		}
-
-		d = &deployment.Deployment{
-			Disks: []*deployment.Disk{
-				{
-					Partitions: deployment.Partitions{esp, sysPart},
-				},
-			},
 		}
 
 		grub = bootloader.NewGrub(s)
@@ -131,21 +132,9 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 	AfterEach(func() {
 		cleanup()
 	})
-	It("Fails installing bootloader to deployment without ESP", func() {
-		sysPart := &deployment.Partition{
-			Role: deployment.System,
-		}
-		broken := &deployment.Deployment{
-			Disks: []*deployment.Disk{{
-				Partitions: deployment.Partitions{sysPart},
-			}},
-		}
-		err := grub.Install("/target/dir", "1", "kernel cmdline", broken)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(Equal("ESP not found"))
-	})
+
 	It("Copies EFI applications to ESP", func() {
-		err := grub.Install("/target/dir", "1", "kernel cmdline", d)
+		err := grub.Install("/target/dir", "/target/dir/boot", "EFI", "1", "kernel cmdline")
 		Expect(err).ToNot(HaveOccurred())
 
 		// Shim, MokManager and grub.efi should exist.
@@ -185,15 +174,20 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		err := tfs.Remove("/target/dir/usr/lib/modules/6.14.4-1-default/initrd")
 		Expect(err).ToNot(HaveOccurred())
 
-		err = grub.Install("/target/dir", "1", "kernel cmdline", d)
+		err = grub.Install("/target/dir", "/target/dir/boot", "EFI", "1", "kernel cmdline")
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError("installing kernel+initrd: initrd not found"))
 	})
 	It("Leaves old snapshots and overwrites 'active' entry", func() {
-		err := grub.Install("/target/dir", "1", "snapshot1", d)
+		err := grub.Install("/target/dir", "/target/dir/boot", "EFI", "1", "snapshot1")
 		Expect(err).ToNot(HaveOccurred())
 
-		err = grub.Install("/target/dir", "2", "snapshot2", d)
+		Expect(grub.AddBootEntry(
+			"/target/dir/boot", bootloader.DefaultBootID,
+			bootloader.RecoveryBootID, "kernel cmdline live"),
+		).To(Succeed())
+
+		err = grub.Install("/target/dir", "/target/dir/boot", "EFI", "2", "snapshot2")
 		Expect(err).ToNot(HaveOccurred())
 
 		// Entries 1, 2 and 'active' should exist
@@ -216,10 +210,10 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.SplitSeq(string(entry2), "\n")).To(ContainElement("cmdline=snapshot2"))
 
-		// entries should read "active 2 1"
+		// entries should read "active 2 1 recovery"
 		entries, err := tfs.ReadFile("/target/dir/boot/grubenv")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(string(entries)).To(Equal("entries=active 2 1"))
+		Expect(string(entries)).To(Equal("entries=active 2 1 recovery"))
 	})
 	It("Prunes old snapshots", func() {
 		// "Install" older (6.6.99) kernel
@@ -228,16 +222,22 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		Expect(tfs.WriteFile("/target/dir/boot/opensuse-tumbleweed/6.6.99-1-default/.vmlinuz.hmac", []byte("6.6.99-1-default vmlinux"), vfs.FilePerm)).To(Succeed())
 		Expect(tfs.WriteFile("/target/dir/boot/opensuse-tumbleweed/6.6.99-1-default/initrd", []byte("6.6.99-1-default vmlinux"), vfs.FilePerm)).To(Succeed())
 
-		err := grub.Install("/target/dir", "1", "snapshot1", d)
+		err := grub.Install("/target/dir", "/target/dir/boot", "EFI", "1", "snapshot1")
 		Expect(err).ToNot(HaveOccurred())
 
-		err = grub.Install("/target/dir", "2", "snapshot2", d)
+		Expect(grub.AddBootEntry(
+			"/target/dir/boot", bootloader.DefaultBootID,
+			bootloader.RecoveryBootID, "live"),
+		).To(Succeed())
+
+		err = grub.Install("/target/dir", "/target/dir/boot", "EFI", "2", "snapshot2")
 		Expect(err).ToNot(HaveOccurred())
 
-		// Entries 1, 2 and 'active' should exist
+		// Entries 1, 2, 'active' and 'recovery' should exist
 		Expect(vfs.Exists(tfs, "/target/dir/boot/loader/entries/1")).To(BeTrue())
 		Expect(vfs.Exists(tfs, "/target/dir/boot/loader/entries/2")).To(BeTrue())
 		Expect(vfs.Exists(tfs, "/target/dir/boot/loader/entries/active")).To(BeTrue())
+		Expect(vfs.Exists(tfs, "/target/dir/boot/loader/entries/recovery")).To(BeTrue())
 
 		// 'active' entry should point to snapshot 2
 		activeEntry, err := tfs.ReadFile("/target/dir/boot/loader/entries/active")
@@ -254,18 +254,23 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.SplitSeq(string(entry2), "\n")).To(ContainElement("cmdline=snapshot2"))
 
-		// entries should read "active 2 1"
+		// 'recovery' entry should include cmdline=live
+		recoveryEntry, err := tfs.ReadFile("/target/dir/boot/loader/entries/recovery")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(strings.SplitSeq(string(recoveryEntry), "\n")).To(ContainElement("cmdline=live"))
+
+		// entries should read "active 2 1 recovery"
 		entries, err := tfs.ReadFile("/target/dir/boot/grubenv")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(string(entries)).To(Equal("entries=active 2 1"))
+		Expect(string(entries)).To(Equal("entries=active 2 1 recovery"))
 
 		// Prune snapshot 1 (keep 2)
-		err = grub.Prune("/target/dir", []int{2}, d)
+		err = grub.Prune("/target/dir", "/target/dir/boot", "EFI", []int{2})
 		Expect(err).ToNot(HaveOccurred())
 
 		entries, err = tfs.ReadFile("/target/dir/boot/grubenv")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(entries).To(Equal([]byte("entries=active 2")))
+		Expect(entries).To(Equal([]byte("entries=active 2 recovery")))
 
 		// Old boot entries and kernel/initrd are removed
 		Expect(vfs.Exists(tfs, "/target/dir/boot/loader/entries/1")).To(BeFalse())
@@ -277,5 +282,35 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		Expect(vfs.Exists(tfs, "/target/dir/boot/opensuse-tumbleweed/6.14.4-1-default/vmlinuz")).To(BeTrue())
 		Expect(vfs.Exists(tfs, "/target/dir/boot/opensuse-tumbleweed/6.14.4-1-default/.vmlinuz.hmac")).To(BeTrue())
 		Expect(vfs.Exists(tfs, "/target/dir/boot/opensuse-tumbleweed/6.14.4-1-default/initrd")).To(BeTrue())
+	})
+	It("Installs bootloader for recovery", func() {
+		err := grub.Install("/target/dir", "/target/dir/boot", "EFI", bootloader.RecoveryBootID, "snapshot1")
+		Expect(err).ToNot(HaveOccurred())
+
+		// Only 'recovery' entry should exist
+		Expect(vfs.Exists(tfs, "/target/dir/boot/loader/entries/active")).To(BeFalse())
+		Expect(vfs.Exists(tfs, "/target/dir/boot/loader/entries/recovery")).To(BeTrue())
+	})
+	It("Adds a new entry based on an exsiting one", func() {
+		err := grub.Install("/target/dir", "/target/dir/boot", "EFI", "1", "snapshot1")
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(grub.AddBootEntry(
+			"/target/dir/boot", bootloader.DefaultBootID,
+			"newentry", "kernel cmdline live"),
+		).To(Succeed())
+
+		// Only 'recovery' entry should exist
+		Expect(vfs.Exists(tfs, "/target/dir/boot/loader/entries/1")).To(BeTrue())
+		Expect(vfs.Exists(tfs, "/target/dir/boot/loader/entries/newentry")).To(BeTrue())
+	})
+	It("cannot overwrite and already existing entry", func() {
+		err := grub.Install("/target/dir", "/target/dir/boot", "EFI", "1", "snapshot1")
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(grub.AddBootEntry(
+			"/target/dir/boot", "1",
+			bootloader.DefaultBootID, "kernel cmdline live"),
+		).To(MatchError(ContainSubstring("cannot overwrite")))
 	})
 })
