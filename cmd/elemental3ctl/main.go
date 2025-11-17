@@ -36,6 +36,7 @@ func main() {
 		cmd.NewUpgradeCommand(appName, action.Upgrade),
 		cmd.NewUnpackImageCommand(appName, action.Unpack),
 		cmd.NewBuildInstallerCommand(appName, action.BuildInstaller),
+		cmd.NewResetCommand(appName, action.Reset),
 		cmd.NewVersionCommand(appName))
 
 	if err := application.Run(os.Args); err != nil {

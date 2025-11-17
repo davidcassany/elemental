@@ -200,7 +200,7 @@ func (i Media) Build(d *deployment.Deployment) (err error) {
 
 	switch i.mType {
 	case ISO:
-		cmdline := i.kernelCmdline(d)
+		cmdline := fmt.Sprintf("%s %s", deployment.LiveKernelCmdline(i.Label), d.Installer.KernelCmdline)
 		err = i.buildISO(tempDir, liveRoot, osRoot, cmdline)
 	case Disk:
 		err = i.buildDisk(tempDir, liveRoot, osRoot, d)
@@ -481,19 +481,6 @@ func (i Media) prepareEFI(isoDir, efiDir string) error {
 		rsync.WithContext(i.ctx),
 	)
 	return r.SyncData(filepath.Join(isoDir, "EFI"), filepath.Join(efiDir, "EFI"))
-}
-
-// kernelCmdline returns the kernel command line including the label for disk or iso
-// and any additional custom kernel parameter
-func (i Media) kernelCmdline(d *deployment.Deployment) string {
-	label := i.Label
-	rec := d.GetRecoveryPartition()
-	if i.mType == Disk && rec != nil {
-		label = rec.Label
-	}
-	return strings.TrimSpace(
-		fmt.Sprintf("%s %s", deployment.LiveKernelCmdline(label), d.Installer.KernelCmdline),
-	)
 }
 
 // addInstallationAssets adds to the ISO directory three the configuration and files required for
