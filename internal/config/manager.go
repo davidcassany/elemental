@@ -103,8 +103,12 @@ func (m *Manager) ConfigureComponents(ctx context.Context, conf *image.Configura
 		return nil, fmt.Errorf("resolving release manifest at uri '%s': %w", conf.Release.ManifestURI, err)
 	}
 
-	if err := m.configureNetworkOnFirstboot(conf, output); err != nil {
+	if err = m.configureNetworkOnFirstboot(conf, output); err != nil {
 		return nil, fmt.Errorf("configuring network: %w", err)
+	}
+
+	if err = m.configureCustomScripts(conf, output); err != nil {
+		return nil, fmt.Errorf("configuring custom scripts: %w", err)
 	}
 
 	k8sScript, k8sConfScript, err := m.configureKubernetes(ctx, conf, rm, output)
