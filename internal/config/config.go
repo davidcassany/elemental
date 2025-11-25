@@ -73,6 +73,10 @@ func (dir Dir) NetworkDir() string {
 	return filepath.Join(string(dir), "network")
 }
 
+func (dir Dir) CustomDir() string {
+	return filepath.Join(string(dir), "custom")
+}
+
 type OutputDir string
 
 func (dir OutputDir) OverlaysDir() string {
@@ -122,6 +126,10 @@ func Parse(f vfs.FS, configDir Dir) (conf *image.Configuration, err error) {
 
 	if err = parseNetworkDir(f, configDir, &conf.Network); err != nil {
 		return nil, fmt.Errorf("parsing network directory: %w", err)
+	}
+
+	if err = parseCustomDir(f, configDir, &conf.Custom); err != nil {
+		return nil, fmt.Errorf("parsing custom directory: %w", err)
 	}
 
 	data, err = f.ReadFile(configDir.ButaneFilepath())
@@ -241,6 +249,54 @@ func parseNetworkDir(f vfs.FS, configDir Dir, n *image.Network) error {
 	default:
 		n.ConfigDir = networkDir
 	}
+
+	return nil
+}
+
+func parseCustomDir(f vfs.FS, configDir Dir, c *image.Custom) error {
+	const (
+		scriptsPath = "scripts"
+		filesPath   = "files"
+	)
+
+	validateDir := func(path string) error {
+		entries, err := f.ReadDir(path)
+		if err != nil {
+			return err
+		}
+
+		if len(entries) == 0 {
+			return fmt.Errorf("directory %q is empty", path)
+		}
+
+		return nil
+	}
+
+	customDir := configDir.CustomDir()
+	if err := validateDir(customDir); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			// Not configured.
+			return nil
+		}
+
+		return err
+	}
+
+	scriptsDir := filepath.Join(customDir, scriptsPath)
+	if err := validateDir(scriptsDir); err != nil {
+		return err
+	}
+	c.ScriptsDir = scriptsDir
+
+	filesDir := filepath.Join(customDir, filesPath)
+	if err := validateDir(filesDir); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			// Not configured.
+			return nil
+		}
+		return err
+	}
+	c.FilesDir = filesDir
 
 	return nil
 }

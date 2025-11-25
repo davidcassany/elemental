@@ -25,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"github.com/suse/elemental/v3/internal/image/install"
 	"github.com/suse/elemental/v3/internal/image/release"
 	sysmock "github.com/suse/elemental/v3/pkg/sys/mock"
@@ -95,6 +96,8 @@ var _ = Describe("Configuration", Label("configuration"), func() {
 			fmt.Sprintf("%s/agent.yaml", configDir.KubernetesConfigDir()):  "",
 			fmt.Sprintf("%s/server.yaml", configDir.KubernetesConfigDir()): "",
 			fmt.Sprintf("%s/node1.foo.yaml", configDir.NetworkDir()):       "",
+			fmt.Sprintf("%s/scripts/foo.sh", configDir.CustomDir()):        "",
+			fmt.Sprintf("%s/files/foo", configDir.CustomDir()):             "",
 		})
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -130,6 +133,9 @@ var _ = Describe("Configuration", Label("configuration"), func() {
 
 		Expect(conf.Network.ConfigDir).To(Equal(configDir.NetworkDir()))
 		Expect(conf.Network.CustomScript).To(BeEmpty())
+
+		Expect(conf.Custom.ScriptsDir).To(Equal(filepath.Join(configDir.CustomDir(), "scripts")))
+		Expect(conf.Custom.FilesDir).To(Equal(filepath.Join(configDir.CustomDir(), "files")))
 
 		Expect(conf.Release.Components.SystemdExtensions).ToNot(BeEmpty())
 		Expect(conf.Release.Components.SystemdExtensions[0].Name).To(Equal("bar"))
@@ -173,12 +179,66 @@ var _ = Describe("Configuration", Label("configuration"), func() {
 		Expect(conf.Network.CustomScript).To(Equal(scriptPath))
 	})
 
-	It("Fails to parse for an empty network directory", func() {
+	It("Fails to parse an empty network directory", func() {
 		Expect(fs.Remove(filepath.Join(configDir.NetworkDir(), "node1.foo.yaml"))).To(Succeed())
 
 		_, err := Parse(fs, configDir)
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError("parsing network directory: network directory is empty"))
+	})
+
+	It("Skips custom scripts if custom directory is not present", func() {
+		Expect(fs.RemoveAll(filepath.Join(configDir.CustomDir()))).To(Succeed())
+
+		conf, err := Parse(fs, configDir)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(conf.Custom.ScriptsDir).To(BeEmpty())
+		Expect(conf.Custom.FilesDir).To(BeEmpty())
+	})
+
+	It("Doesn't set custom files directory only if not present", func() {
+		Expect(fs.RemoveAll(filepath.Join(configDir.CustomDir(), "files"))).To(Succeed())
+
+		conf, err := Parse(fs, configDir)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(conf.Custom.ScriptsDir).To(Equal(filepath.Join(configDir.CustomDir(), "scripts")))
+		Expect(conf.Custom.FilesDir).To(BeEmpty())
+	})
+
+	It("Fails to parse an empty custom directory", func() {
+		Expect(fs.RemoveAll(filepath.Join(configDir.CustomDir(), "scripts"))).To(Succeed())
+		Expect(fs.RemoveAll(filepath.Join(configDir.CustomDir(), "files"))).To(Succeed())
+
+		_, err := Parse(fs, configDir)
+		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError("parsing custom directory: directory \"/tmp/config-dir/custom\" is empty"))
+	})
+
+	It("Fails to parse a custom directory without a scripts subdirectory", func() {
+		Expect(fs.RemoveAll(filepath.Join(configDir.CustomDir(), "scripts"))).To(Succeed())
+
+		_, err := Parse(fs, configDir)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("parsing custom directory: "))
+		Expect(err.Error()).To(ContainSubstring("/custom/scripts: no such file or directory"))
+	})
+
+	It("Fails to parse an empty custom scripts directory", func() {
+		Expect(fs.RemoveAll(filepath.Join(configDir.CustomDir(), "scripts"))).To(Succeed())
+		Expect(fs.Mkdir(filepath.Join(configDir.CustomDir(), "scripts"), vfs.DirPerm)).To(Succeed())
+
+		_, err := Parse(fs, configDir)
+		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("parsing custom directory: directory \"/tmp/config-dir/custom/scripts\" is empty")))
+	})
+
+	It("Fails to parse an empty custom files directory", func() {
+		Expect(fs.RemoveAll(filepath.Join(configDir.CustomDir(), "files"))).To(Succeed())
+		Expect(fs.Mkdir(filepath.Join(configDir.CustomDir(), "files"), vfs.DirPerm)).To(Succeed())
+
+		_, err := Parse(fs, configDir)
+		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError("parsing custom directory: directory \"/tmp/config-dir/custom/files\" is empty"))
 	})
 })
 

@@ -39,6 +39,7 @@ type Configuration struct {
 	Release      release.Release
 	Kubernetes   kubernetes.Kubernetes
 	Network      Network
+	Custom       Custom
 	ButaneConfig map[string]any
 }
 
@@ -51,4 +52,9 @@ type Image struct {
 type Network struct {
 	CustomScript string
 	ConfigDir    string
+}
+
+type Custom struct {
+	ScriptsDir string
+	FilesDir   string
 }
