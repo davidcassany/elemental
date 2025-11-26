@@ -69,7 +69,7 @@ func New() FS {
 	return gvfs.OSFS
 }
 
-// DirSize returns the accumulated size of all files in folder. Result in bytes
+// DirSize returns the accumulated size of all files in a directory. The result is in bytes.
 func DirSize(fs FS, path string, excludes ...string) (int64, error) {
 	var size int64
 	err := WalkDirFs(fs, path, func(loopPath string, d os.DirEntry, err error) error {
@@ -95,7 +95,7 @@ func DirSize(fs FS, path string, excludes ...string) (int64, error) {
 	return size, err
 }
 
-// DirSizeMB returns the accumulated size of all files in folder. Result in Megabytes
+// DirSizeMB returns the accumulated size of all files in a directory. The result is in megabytes.
 func DirSizeMB(fs FS, path string, excludes ...string) (uint, error) {
 	size, err := DirSize(fs, path, excludes...)
 	if err != nil {
@@ -110,8 +110,7 @@ func DirSizeMB(fs FS, path string, excludes ...string) (uint, error) {
 	return 0, fmt.Errorf("negative size calculation: %d", sizeMB)
 }
 
-// Check if a file or directory exists, follow flag determines to
-// follow or not symlinks to check files existance.
+// Exists verifies if a file or directory exists. Optionally, a follow parameter may be provided to follow symlinks.
 func Exists(fs FS, path string, follow ...bool) (bool, error) {
 	var err error
 	if len(follow) > 0 && follow[0] {
@@ -129,8 +128,9 @@ func Exists(fs FS, path string, follow ...bool) (bool, error) {
 }
 
 // ForceRemoveAll removes the specified path.
-// If it fails to remove somepaths it tries set the write permission
-// to every file or directory and run a removal again
+//
+// If it fails to remove some paths, it tries to reset the write permission
+// for all files and directories and attempts a removal again.
 func ForceRemoveAll(vfs FS, path string) error {
 	err := vfs.RemoveAll(path)
 	if err == nil {
@@ -154,8 +154,7 @@ func ForceRemoveAll(vfs FS, path string) error {
 	return errors.Join(errs, vfs.RemoveAll(path))
 }
 
-// IsDir check if the path is a dir. follow flag determines to
-// follow symlinks.
+// IsDir checks if a given path is a directory. Optionally, a follow parameter may be provided to follow symlinks.
 func IsDir(f FS, path string, follow ...bool) (bool, error) {
 	var err error
 	var fi fs.FileInfo
@@ -171,8 +170,8 @@ func IsDir(f FS, path string, follow ...bool) (bool, error) {
 	return fi.IsDir(), nil
 }
 
-// MkdirAll is equivalent to os.MkdirAll but operates on fileSystem.
-// Code ported from go-vfs library
+// MkdirAll is equivalent to os.MkdirAll but operates on an FS.
+// Code ported from go-vfs library.
 func MkdirAll(fileSystem FS, path string, perm fs.FileMode) error {
 	err := fileSystem.Mkdir(path, perm)
 	switch {
@@ -180,11 +179,11 @@ func MkdirAll(fileSystem FS, path string, perm fs.FileMode) error {
 		// Mkdir was successful.
 		return nil
 	case errors.Is(err, fs.ErrExist):
-		// path already exists, but we don't know whether it's a directory or
+		// Path already exists, but we don't know whether it's a directory or
 		// something else. We get this error if we try to create a subdirectory
-		// of a non-directory, for example if the parent directory of path is a
+		// of a non-directory, for example if the parent directory of a path is a
 		// file. There's a race condition here between the call to Mkdir and the
-		// call to Stat but we can't avoid it because there's not enough
+		// call to Stat, but we can't avoid it because there's not enough
 		// information in the returned error from Mkdir. We need to distinguish
 		// between "path already exists and is already a directory" and "path
 		// already exists and is not a directory". Between the call to Mkdir and
@@ -198,8 +197,7 @@ func MkdirAll(fileSystem FS, path string, perm fs.FileMode) error {
 		}
 		return nil
 	case errors.Is(err, fs.ErrNotExist):
-		// Parent directory does not exist. Create the parent directory
-		// recursively, then try again.
+		// Parent directory does not exist. Create it recursively, then try again.
 		parentDir := filepath.Dir(path)
 		if parentDir == "/" || parentDir == "." {
 			// We cannot create the root directory or the current directory, so
@@ -216,7 +214,7 @@ func MkdirAll(fileSystem FS, path string, perm fs.FileMode) error {
 	}
 }
 
-// ReadLink calls fs.Readlink but trims temporary prefix on Readlink result
+// ReadLink calls fs.Readlink but trims temporary prefix on the result.
 func ReadLink(fs FS, name string) (string, error) {
 	res, err := fs.Readlink(name)
 	if err != nil {
@@ -226,8 +224,8 @@ func ReadLink(fs FS, name string) (string, error) {
 	return strings.TrimPrefix(res, strings.TrimSuffix(raw, name)), err
 }
 
-// resolveLink attempts to resolve a symlink, if any. Returns the original given path
-// if not a symlink. In case of error returns error and the original given path.
+// resolveLink attempts to resolve a symlink, if any. Returns the original path
+// if not a symlink. In case of an error, it returns the error and the original path.
 func resolveLink(vfs FS, path string, rootDir string, d fs.DirEntry, depth int) (string, error) {
 	var err error
 	var resolved string
@@ -259,7 +257,7 @@ func resolveLink(vfs FS, path string, rootDir string, d fs.DirEntry, depth int) 
 	return path, nil
 }
 
-// ResolveLink attempts to resolve a symlink, if any. Returns the original given path
+// ResolveLink attempts to resolve a symlink, if any. Returns the original path
 // if not a symlink or if it can't be resolved.
 func ResolveLink(vfs FS, path string, rootDir string, depth int) (string, error) {
 	f, err := vfs.Lstat(path)
@@ -297,7 +295,7 @@ func FindFiles(vfs FS, rootDir string, pattern string) ([]string, error) {
 }
 
 // findFile attempts to find a file from a given pattern on top of a root path.
-// Returns empty path if no file is found.
+// Returns empty string if no file is found.
 func findFile(vfs FS, rootDir, pattern string) (string, error) {
 	files, err := findFiles(vfs, rootDir, pattern, true)
 	if err != nil {
@@ -381,7 +379,7 @@ func nextRandom() string {
 }
 
 // TempDir creates a temporary directory in the virtual fs
-// dir defines the parent directory to create into, if emtpy it relies on
+// dir defines the parent directory to create into, if empty it relies on
 // the OS default TMP directory. The prefix is used to name new temporary directory.
 func TempDir(fs FS, dir, prefix string) (name string, err error) {
 	var raw string
@@ -420,8 +418,8 @@ func TempDir(fs FS, dir, prefix string) (name string, err error) {
 	return
 }
 
-// TempFile creates a temp file in the virtual fs
-// Took from afero.FS code and adapted
+// TempFile creates a temp file in the virtual FS.
+// Took from afero.FS code and adapted.
 func TempFile(fs FS, dir, pattern string) (f *os.File, err error) {
 	if dir == "" {
 		dir = os.TempDir()
@@ -461,7 +459,7 @@ func (d *statDirEntry) IsDir() bool                { return d.info.IsDir() }
 func (d *statDirEntry) Type() fs.FileMode          { return d.info.Mode().Type() }
 func (d *statDirEntry) Info() (fs.FileInfo, error) { return d.info, nil }
 
-// WalkDirFs is the same as filepath.WalkDir but accepts a types.Fs so it can be run on any types.Fs type
+// WalkDirFs is the same as filepath.WalkDir but accepts an FS so it can be run on any FS type.
 func WalkDirFs(fs FS, root string, fn fs.WalkDirFunc) error {
 	info, err := fs.Stat(root)
 	if err != nil {
@@ -514,6 +512,53 @@ func readDir(vfs FS, dirname string) ([]fs.DirEntry, error) {
 	return dirs, nil
 }
 
+// CopyDir walks over the provided source directory and copies each file under the destination directory.
+// Optionally, a callback function may be executed for each destination path.
+//
+// Does nothing if the source directory is an empty string or contains no files.
+func CopyDir(vfs FS, srcRoot, destRoot string, recursive bool, onCopy func(destPath string) error) error {
+	if srcRoot == "" {
+		return nil
+	}
+
+	return WalkDirFs(vfs, srcRoot, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		} else if path == srcRoot {
+			return nil // root node
+		}
+
+		relPath, err := filepath.Rel(srcRoot, path)
+		if err != nil {
+			return fmt.Errorf("calculating relative path: %w", err)
+		}
+
+		destination := filepath.Join(destRoot, relPath)
+
+		if entry.IsDir() {
+			if !recursive {
+				return fmt.Errorf("directories under %s are not supported", srcRoot)
+			}
+			if err = MkdirAll(vfs, destination, DirPerm); err != nil {
+				return fmt.Errorf("creating directory %q: %w", destination, err)
+			}
+			return nil
+		}
+
+		if err = CopyFile(vfs, path, destination); err != nil {
+			return fmt.Errorf("copying file %q to %q: %w", path, destination, err)
+		}
+
+		if onCopy != nil {
+			if err = onCopy(destination); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
 // CopyFile copies source file to a target file using the FS interface. If the target
 // is a directory, the source is copied into that directory using a source name file.
 // File mode is preserved.
@@ -521,10 +566,10 @@ func CopyFile(fs FS, source string, target string) error {
 	return ConcatFiles(fs, []string{source}, target)
 }
 
-// ConcatFiles Copies source files to target file using Fs interface.
-// Source files are concatenated into target file in the given order.
-// If target is a directory source is copied into that directory using
-// 1st source name file. The result keeps the file mode of the 1st source.
+// ConcatFiles copies source files to a target file using the FS interface.
+// Source files are concatenated into the target file in the given order.
+// If the target is a directory, the source is copied into that directory using
+// the name of the first source file. The result keeps the file mode of the first source.
 func ConcatFiles(fs FS, sources []string, target string) (err error) {
 	if len(sources) == 0 {
 		return fmt.Errorf("empty sources list")
@@ -568,7 +613,7 @@ func ConcatFiles(fs FS, sources []string, target string) (err error) {
 	return fs.Chmod(target, fInf.Mode())
 }
 
-// LoadEnvFile will try to parse the file given and return a map with the key/values
+// LoadEnvFile parses a file and constructs a map with the respective key-value pairs.
 func LoadEnvFile(fs FS, file string) (map[string]string, error) {
 	var envMap map[string]string
 	var err error
@@ -587,7 +632,7 @@ func LoadEnvFile(fs FS, file string) (map[string]string, error) {
 	return envMap, err
 }
 
-// WriteEnvFile will write the given environment file with the given key/values
+// WriteEnvFile writes an environment file with the given key-value pairs.
 func WriteEnvFile(fs FS, envs map[string]string, filename string) error {
 	var bkFile string
 

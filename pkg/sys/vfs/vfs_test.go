@@ -18,6 +18,7 @@ limitations under the License.
 package vfs_test
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -196,7 +197,9 @@ var _ = Describe("FS", Label("fs"), func() {
 			osFS = vfs.New()
 			tempDir, err := vfs.TempDir(osFS, "", "testing")
 			Expect(err).NotTo(HaveOccurred())
-			defer osFS.RemoveAll(tempDir)
+			defer func() {
+				Expect(osFS.RemoveAll(tempDir)).To(Succeed())
+			}()
 
 			Expect(vfs.MkdirAll(tfs, filepath.Join(tempDir, "subfolder"), vfs.DirPerm)).To(Succeed())
 			Expect(tfs.Symlink("subfolder", filepath.Join(tempDir, "linkToSubfolder"))).To(Succeed())
@@ -225,7 +228,9 @@ var _ = Describe("FS", Label("fs"), func() {
 			osFS = vfs.New()
 			tempDir, err := vfs.TempDir(osFS, "", "testing")
 			Expect(err).NotTo(HaveOccurred())
-			defer osFS.RemoveAll(tempDir)
+			defer func() {
+				Expect(osFS.RemoveAll(tempDir)).To(Succeed())
+			}()
 
 			Expect(tempDir).NotTo(Equal(filepath.Join(os.TempDir(), "testing")))
 			Expect(strings.HasPrefix(tempDir, filepath.Join(os.TempDir(), "testing"))).To(BeTrue())
@@ -237,7 +242,10 @@ var _ = Describe("FS", Label("fs"), func() {
 			osFS = vfs.New()
 			tempFile, err := vfs.TempFile(osFS, "", "testing")
 			Expect(err).ToNot(HaveOccurred())
-			defer osFS.RemoveAll(tempFile.Name())
+			defer func() {
+				Expect(osFS.Remove(tempFile.Name())).To(Succeed())
+			}()
+
 			Expect(tempFile.Name()).NotTo(Equal(filepath.Join(os.TempDir(), "testing")))
 			Expect(strings.HasPrefix(tempFile.Name(), filepath.Join(os.TempDir(), "testing"))).To(BeTrue())
 		})
@@ -247,7 +255,7 @@ var _ = Describe("FS", Label("fs"), func() {
 			Expect(tfs.Symlink("subfolder", "/folder/linkToSubfolder")).To(Succeed())
 			Expect(tfs.Symlink("nonexisting", "/folder/brokenlink")).To(Succeed())
 
-			currentPahts := []string{
+			currentPaths := []string{
 				"/", "/folder", "/folder/brokenlink", "/folder/file",
 				"/folder/linkToSubfolder", "/folder/subfolder", "/folder/subfolder/file1",
 			}
@@ -260,9 +268,9 @@ var _ = Describe("FS", Label("fs"), func() {
 				foundPaths = append(foundPaths, path)
 				return err
 			}
-			vfs.WalkDirFs(tfs, "/", f)
-			Expect(len(foundPaths)).To(Equal(len(currentPahts)))
-			Expect(foundPaths).To(Equal(currentPahts))
+			Expect(vfs.WalkDirFs(tfs, "/", f)).To(Succeed())
+			Expect(len(foundPaths)).To(Equal(len(currentPaths)))
+			Expect(foundPaths).To(Equal(currentPaths))
 		})
 	})
 	Describe("CopyFile", func() {
@@ -300,9 +308,8 @@ var _ = Describe("FS", Label("fs"), func() {
 			Expect(err).NotTo(BeNil())
 		})
 		It("Fails to copy on non writable target", func() {
-			err := vfs.MkdirAll(tfs, "/some", vfs.DirPerm)
-			Expect(err).ShouldNot(HaveOccurred())
-			tfs.Create("/some/file")
+			Expect(vfs.MkdirAll(tfs, "/some", vfs.DirPerm)).To(Succeed())
+			Expect(tfs.Create("/some/file")).Error().NotTo(HaveOccurred())
 			_, err = tfs.Stat("/some/otherfile")
 			Expect(err).NotTo(BeNil())
 			tfs, err = sysmock.ReadOnlyTestFS(tfs)
@@ -312,6 +319,127 @@ var _ = Describe("FS", Label("fs"), func() {
 			Expect(err).NotTo(BeNil())
 		})
 	})
+
+	var _ = Describe("CopyDir", func() {
+		srcDir := "/source"
+		destDir := "/target"
+
+		BeforeEach(func() {
+			Expect(tfs.Mkdir(srcDir, vfs.DirPerm)).To(Succeed())
+			Expect(tfs.WriteFile(filepath.Join(srcDir, "file1"), []byte("content1"), 0644)).To(Succeed())
+			Expect(tfs.WriteFile(filepath.Join(srcDir, "file2"), []byte("content2"), 0644)).To(Succeed())
+
+			Expect(tfs.Mkdir(destDir, vfs.DirPerm)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(tfs.RemoveAll(srcDir)).To(Succeed())
+			Expect(tfs.RemoveAll(destDir)).To(Succeed())
+		})
+
+		It("Copies all files from source to destination, excluding subdirectories", func() {
+			Expect(vfs.CopyDir(tfs, srcDir, destDir, false, nil)).To(Succeed())
+
+			content, err := tfs.ReadFile(filepath.Join(destDir, "file1"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(Equal("content1"))
+
+			content, err = tfs.ReadFile(filepath.Join(destDir, "file2"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(Equal("content2"))
+		})
+
+		It("Copies all files from source to destination, including subdirectories", func() {
+			Expect(tfs.Mkdir(filepath.Join(srcDir, "nested"), vfs.DirPerm)).To(Succeed())
+			Expect(tfs.WriteFile(filepath.Join(srcDir, "nested", "file3"), []byte("content3"), 0644)).To(Succeed())
+
+			Expect(vfs.CopyDir(tfs, srcDir, destDir, true, nil)).To(Succeed())
+
+			content, err := tfs.ReadFile(filepath.Join(destDir, "file1"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(Equal("content1"))
+
+			content, err = tfs.ReadFile(filepath.Join(destDir, "file2"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(Equal("content2"))
+
+			content, err = tfs.ReadFile(filepath.Join(destDir, "nested", "file3"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(Equal("content3"))
+		})
+
+		It("Executes the onCopy callback for every file", func() {
+			var visited []string
+
+			onCopyCallback := func(destPath string) error {
+				visited = append(visited, destPath)
+				return nil
+			}
+
+			Expect(vfs.CopyDir(tfs, srcDir, destDir, false, onCopyCallback)).To(Succeed())
+
+			Expect(vfs.Exists(tfs, filepath.Join(destDir, "file1"))).To(BeTrue())
+			Expect(vfs.Exists(tfs, filepath.Join(destDir, "file2"))).To(BeTrue())
+
+			Expect(visited).To(ConsistOf(
+				filepath.Join(destDir, "file1"),
+				filepath.Join(destDir, "file2"),
+			))
+		})
+
+		It("Does nothing if source directory is empty string", func() {
+			Expect(vfs.CopyDir(tfs, "", destDir, false, nil)).To(Succeed())
+
+			entries, err := tfs.ReadDir(destDir)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(entries).To(BeEmpty())
+		})
+
+		It("Does nothing if source directory is empty", func() {
+			Expect(tfs.RemoveAll(srcDir)).To(Succeed())
+			Expect(tfs.Mkdir(srcDir, vfs.DirPerm)).To(Succeed())
+
+			Expect(vfs.CopyDir(tfs, srcDir, destDir, false, nil)).To(Succeed())
+
+			entries, err := tfs.ReadDir(destDir)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(entries).To(BeEmpty())
+		})
+
+		It("Fails if the source directory does not exist", func() {
+			err = vfs.CopyDir(tfs, "/non-existent", destDir, false, nil)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("no such file or directory")))
+		})
+
+		It("Fails if a subdirectory is encountered on non-recursive call", func() {
+			Expect(tfs.Mkdir(filepath.Join(srcDir, "nested"), vfs.DirPerm)).To(Succeed())
+
+			err = vfs.CopyDir(tfs, srcDir, destDir, false, nil)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError("directories under /source are not supported"))
+		})
+
+		It("Fails if the onCopy callback returns an error", func() {
+			onCopyCallback := func(path string) error {
+				return fmt.Errorf("boom")
+			}
+
+			err = vfs.CopyDir(tfs, srcDir, destDir, false, onCopyCallback)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError("boom"))
+		})
+
+		It("Fails if copying the file fails", func() {
+			roFS, err := sysmock.ReadOnlyTestFS(tfs)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = vfs.CopyDir(roFS, srcDir, destDir, false, nil)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("copying file \"/source/file1\" to \"/target/file1\""))
+		})
+	})
+
 	Describe("ResolveLink", func() {
 		var rootDir, file, relSymlink, absSymlink, nestSymlink, brokenSymlink string
 
