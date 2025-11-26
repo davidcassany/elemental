@@ -44,22 +44,8 @@ func (m *Manager) configureNetworkOnFirstboot(conf *image.Configuration, outputD
 		if err := vfs.CopyFile(m.system.FS(), conf.Network.CustomScript, netDir); err != nil {
 			return fmt.Errorf("copying custom network script: %w", err)
 		}
-	} else {
-		entries, err := m.system.FS().ReadDir(conf.Network.ConfigDir)
-		if err != nil {
-			return fmt.Errorf("reading network directory: %w", err)
-		}
-
-		for _, entry := range entries {
-			if entry.IsDir() {
-				return fmt.Errorf("directories under %s are not supported", conf.Network.ConfigDir)
-			}
-
-			fileInConfigDir := filepath.Join(conf.Network.ConfigDir, entry.Name())
-			if err := vfs.CopyFile(m.system.FS(), fileInConfigDir, netDir); err != nil {
-				return fmt.Errorf("copying network config file '%s' to '%s': %w ", fileInConfigDir, netDir, err)
-			}
-		}
+	} else if err := vfs.CopyDir(m.system.FS(), conf.Network.ConfigDir, netDir, false, nil); err != nil {
+		return fmt.Errorf("copying network config: %w", err)
 	}
 	return nil
 }

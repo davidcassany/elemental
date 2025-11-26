@@ -112,13 +112,13 @@ var _ = Describe("Network", func() {
 
 		err := m.configureNetworkOnFirstboot(conf, outputDir)
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("reading network directory: open"))
+		Expect(err.Error()).To(ContainSubstring("copying network config: stat"))
 		Expect(err.Error()).To(ContainSubstring("/etc/missing: no such file or directory"))
 
 		conf.Network.ConfigDir = "/etc/network"
 		err = m.configureNetworkOnFirstboot(conf, outputDir)
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(Equal("directories under /etc/network are not supported"))
+		Expect(err).To(MatchError("copying network config: directories under /etc/network are not supported"))
 	})
 
 	It("Successfully copies network directory nmstate files", func() {
