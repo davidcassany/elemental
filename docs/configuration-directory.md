@@ -8,6 +8,7 @@ Generally, the available configuration areas that this directory supports are th
 * [Operating System](#operating-system)
 * [Kubernetes](#kubernetes)
 * [Network](#network)
+* [Custom Scripts](#custom-scripts)
 
 This document provides an overview of each configuration area, the rationale behind it and its API.
 
@@ -289,3 +290,37 @@ You can call the `disable_wired_conn` shell function to remove any existing wire
 #!/bin/bash
 ...
 disable_wired_conn
+```
+
+## Custom Scripts
+
+Elemental can bundle in custom scripts that will be executed during the firstboot phase of provisioning a system.
+Additionally, these scripts may require the availability of particular local files which can be embedded into the configuration partition too.
+
+These scripts are executed alphabetically. It is suggested to use a numbered prefix within the 50–99 range (e.g. `60-my-script.sh`).
+Elemental may leverage the values in the 00–49 range in the future, so unless necessary, those should be avoided.
+
+Finally, if any of the provided scripts or files is needed beyond the firstboot phase, a script should be included that explicitly copies them to the filesystem.
+
+```text
+.
+├── ...
+└── custom
+    ├── files
+    │   ├── custom-binary
+    │   ├── subdirectory
+    │   │   └── some-file.txt
+    │   └── custom-script.sh
+    └── scripts
+        └── 70-manual-configuration.sh
+```
+
+* `custom` - May be included to inject files into the configuration partition. Files are organized by subdirectory as follows:
+  * `scripts` - If present, all the files in this directory will be included in the built / customized image and automatically
+    executed during the firstboot phase.
+  * `files` - If present, all the files, directories, and subdirectories in this directory will be available at firstboot on the booted system.
+
+Note that attempting to write to read-only directories (e.g., `/usr`) from a custom script will fail.
+
+Additionally, a couple of commonly used directories (namely `/home` and `/opt`) must be explicitly mounted,
+as they are not available during the initramfs stage. It is therefore crucial to also unmount these directories at the end of the respective scripts.
