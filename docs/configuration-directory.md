@@ -65,7 +65,7 @@ diskSize: 35G
 ### butane.yaml
 
 The `butane.yaml` optional file enables users to configure the actual operating system by allowing them to provide their own [Butane](https://coreos.github.io/butane/) configuration.
-During the build this will be translated into an [Ignition](https://coreos.github.io/ignition/) configuration which will be included in the image and executed at first boot.
+During the build or customization processes, this will be translated into an [Ignition](https://coreos.github.io/ignition/) configuration which will be included in the image and executed at first boot.
 The example below shows how it can be used to set up users:
 
 ```yaml
@@ -79,6 +79,8 @@ passwd:
 ```
 
 Elemental does not enforce or prefer any specific Butane variant.
+
+Check [Filesystem Modes](./filesystem-modes.md) for more information on the filesystem layout and which paths are writable.
 
 Check [Elemental and Ignition Integration](./ignition-integration.md) for further details about Ignition being used in the scope of Elemental.
 
@@ -321,6 +323,6 @@ Finally, if any of the provided scripts or files is needed beyond the firstboot 
   * `files` - If present, all the files, directories, and subdirectories in this directory will be available at firstboot on the booted system.
 
 Note that attempting to write to read-only directories (e.g., `/usr`) from a custom script will fail.
+Check [Filesystem Modes](./filesystem-modes.md) for more information on the filesystem layout and which paths are writable.
 
-Additionally, a couple of commonly used directories (namely `/home` and `/opt`) must be explicitly mounted,
-as they are not available during the initramfs stage. It is therefore crucial to also unmount these directories at the end of the respective scripts.
+It is crucial to perform cleanup (unmounting) in every script that involves mounting a specific path.
