@@ -42,11 +42,11 @@ For a real-life example usage for the command, refer to the [Example](#example) 
 
 ### Build Directory Overview
 
-The `elemental3 build` command creates a build directory for each execution. Apart from the image, this build directory holds all the files and sub-directories used for build.
+The `elemental3 build` command creates a build directory for each execution. Apart from the image, this build directory holds all the files and subdirectories used for build.
 
 The expanded build directory contains the following files and subdirectories:
 
-```shell
+```text
 _build/
 ├── build-<timestamp>
 │   ├── config.sh
@@ -85,7 +85,7 @@ This section provides a high-level overview of the steps that Elemental's toolin
    5. Merge the base operating system image setup with the configurations and/or extensions provided either by the user, or by a release manifest.
    6. Install the bootloader and setup the kernel parameters, as defined in the `install.yaml` file.
    7. Setup the default snapshot for the operating system.
-14. Mark installation and build as completed.
+7. Mark installation and build as completed.
 
 ![image](images/build-process.png)
 
@@ -103,7 +103,7 @@ This section provides an example on how users can leverage the `elemental3` comm
 
 SELinux should be set in `permissive` mode to be able to execute the `build*` or `install` commands on the build host. This is a workaround, we are working on fixing this.
 
-The resulting OS image will not be impacted by this workaround. It will have the default SELinux configuration has expected, so in `enforcing` mode if it is set by default.
+This workaround will not impact the resulting OS image. It will have the default SELinux configuration has expected, so in `enforcing` mode if it is set by default.
 
 ### Use case
 
@@ -115,7 +115,7 @@ In addition, the user wants to extend their environment by deploying the `NeuVec
 
 ### Configuration directory setup
 
-The user creates a [configuration directory](../examples/elemental/build/) that describes the desired state of the image that needs to be built.
+The user creates a [configuration directory](../examples/elemental/build) that describes the desired state of the image that needs to be built.
 
 The contents of this directory include:
 
@@ -140,7 +140,7 @@ sudo elemental3 build --image-type raw --config-dir . --output example.raw
 
 After execution, your `examples/elemental/build` directory should look similar to:
 
-```shell
+```text
 .
 ├── _build <- created by build command
 ├── example.raw <- created by build command
@@ -207,7 +207,7 @@ After booting the image and logging into it using the user specified under the `
 
 1. Verify the machine's hostname:
 
-   > **NOTE:** If you have defined a MAC address that matches one of the network configuration files defined under the [network/](../examples/elemental/build/network/) directory, the hostname will be set to the name of that file.
+   > **NOTE:** If you have defined a MAC address that matches one of the network configuration files defined under the [network/](../examples/elemental/build/network) directory, the hostname will be set to the name of that file.
 
    ```shell
    cat /etc/hostname

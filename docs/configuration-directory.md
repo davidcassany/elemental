@@ -64,8 +64,8 @@ diskSize: 35G
 ### butane.yaml
 
 The `butane.yaml` optional file enables users to configure the actual operating system by allowing them to provide their own [Butane](https://coreos.github.io/butane/) configuration.
-During the build this will be translated into an [Ignition](https://coreos.github.io/ignition/) configuration which will be included into the image and executed at first boot.
-The example below shows how it can be used to setup users:
+During the build this will be translated into an [Ignition](https://coreos.github.io/ignition/) configuration which will be included in the image and executed at first boot.
+The example below shows how it can be used to set up users:
 
 ```yaml
 version: 1.6.0
@@ -82,8 +82,8 @@ Elemental does not enforce or prefer any specific Butane variant.
 Check [Elemental and Ignition Integration](./ignition-integration.md) for further details about Ignition being used in the scope of Elemental.
 
 > [!NOTE]
-> The inclusion of an external Butane configuration file is not considered to be an stable part of the Elemental user interface. Butane configuration
-> could be surperseded by a native Elemental declaration in the future.
+> The inclusion of an external Butane configuration file is not considered to be a stable part of the Elemental user interface. Butane configuration
+> could be superseded by a native Elemental declaration in the future.
 
 ## Kubernetes
 
@@ -127,14 +127,14 @@ The `kubernetes/` directory enables users to configure custom Helm chart values 
 
 The directory's structure is as follows:
 
-```shell
+```text
 .
 └── kubernetes
-    ├── helm
-    │   └── values
-    │       └── rancher.yaml
-    └── manifests
-        └── local-manifest.yaml
+    ├── helm
+    │   └── values
+    │       └── rancher.yaml
+    └── manifests
+        └── local-manifest.yaml
 ```
 
 * `helm` - Optional; Contains locally provided Helm chart configurations
@@ -148,7 +148,7 @@ Network configuration can be declaratively applied through the `network/` direct
 1. Via [nmstate configuration files](#configuring-the-network-via-nmstate-files).
 1. Via a [user-defined network script](#configuring-the-network-via-a-user-defined-script).
 
-> **NOTE:** If the `network/` directory is missing, the system will implicitly fallback to DHCP.
+> **NOTE:** If the `network/` directory is missing, the system will implicitly fall back to DHCP.
 
 > **IMPORTANT:** Elemental does not support mixing `nmstate` configuration files and a `user-defined` script within the same `network/` directory.
 
@@ -160,7 +160,7 @@ These files will be processed by the NetworkManager Configurator (`nmc`), a CLI 
 
 You can define the configurations for multiple hosts by creating files named after the hostname that would be set. Thereby allowing multiple different nodes to be spawned from the same built image, with each node self-identifying during the first boot process based on MAC address matching of the network card(s).
 
-Examples for this type of configurations can be viewed under the [examples](../examples/elemental/build/network/) directory.
+Examples for this type of configurations can be viewed under the [examples](../examples/elemental/build/network) directory.
 
 For more information on the `nmstate` library, refer to the [upstream documentation](https://nmstate.io).
 
@@ -172,15 +172,15 @@ For use cases where configuring the network through `nmstate` files is not suffi
 
 A script named `configure-network.sh` will be executed on first boot during the `initrd` phase:
 
-```shell
+```text
 .
 ├── ..
 ├── kubernetes/
 └── network/
-    └── configure-network.sh
+    └── configure-network.sh
 ```
 
-> **NOTE:** If available, the default network is setup before the `configure-network.sh` runs. This ensures that the script is able to retrieve relevant configurations also from remote locations.
+> **NOTE:** If available, the default network is set up before the `configure-network.sh` runs. This ensures that the script is able to retrieve relevant configurations also from remote locations.
 
 > **IMPORTANT:** The `configure-network.sh` script will run in a restricted environment. To apply the desired network state, you **must** provide your configurations through a set of helper tools available to the `configure-network.sh` script during execution. For a complete list of the avaiable tools, see the [Helper tools](#helper-tools) section.
 

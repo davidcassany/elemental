@@ -59,7 +59,7 @@ components:
 
 * `metadata` - Optional; General information about the product version that this manifest describes.
   * `name` - Required; Name of the product that this manifest describes.
-  * `version` - Required; Release version of the product that this manifest describes.
+  * `version` - Required; Version of the product release that this manifest describes.
   * `upgradePathsFrom` - Optional; Previous versions from which an upgrade to this release manifest version is supported.
   * `creationDate` - Optional; Defines the release date for the specified version.
 * `corePlatform` - Required; Defines the `Core Platform` release version that this product wishes to be based upon and extend.
@@ -67,7 +67,7 @@ components:
   * `version` - Required; Version of the release manifest that you wish to use. The version of the manifest matches the version of the `Core Platform`.
 * `components` - Optional; Components with which to extend the `Core Platform`.
   * `helm` - Optional; Defines Helm components with which to extend the `Core Platform`.
-    * `charts` - Required; Defines a list of Helm charts to be deployed along side any `Core Platform` defined Helm charts.
+    * `charts` - Required; Defines a list of Helm charts to be deployed alongside any `Core Platform` defined Helm charts.
       * `chart` - Required; Name of the Helm chart, as seen in the repository.
       * `version` - Required; Version of the Helm chart, as seen in the repository.
       * `repository` - Optional if running an OCI chart; Name of the source repository that this chart can be retrieved from.
@@ -84,7 +84,7 @@ components:
 
 ### Bundle into an OCI image
 
-As mentioned in the [release.yaml](configuration-directory.md#releaseyaml) configuration file, consumers can refer to a `Product Release Manifest` from an OCI image. This section outlines the minimum steps needed for consumers and/or users to setup said image, while also outlining any caveats and recommendations for the process.
+As mentioned in the [release.yaml](configuration-directory.md#releaseyaml) configuration file, consumers can refer to a `Product Release Manifest` from an OCI image. This section outlines the minimum steps needed for consumers and/or users to set up said image, while also outlining any caveats and recommendations for the process.
 
 *Steps:*
 1. Create a product release manifest YAML file by using the [Product Release Manifest API](#product-release-manifest-api) reference. **Make sure you provide only components relevant to your product and remove the example components from the reference.**
@@ -144,4 +144,4 @@ This reference focuses only on the unique to the Core Platform component APIs. A
   * `kubernetes` - Describes the Kubernetes distributions that are supported with this Core Platform release.
     * `rke2` - Describes the RKE2 Kubernetes distribution version and location.
       * `version` - Version for the RKE2 Kubernetes distribution.
-      * `image` - Location for the `systemd-sysext` image that hosts the RKE2 Kubernetes distribution. **Currently this property refers to the RAW image file location, but the end goal is for it to refer to a container image.**
+      * `image` - Location for the `systemd-sysext` image that hosts the RKE2 Kubernetes distribution. **Currently, this property refers to the RAW image file location, but the end goal is for it to refer to a container image.**
