@@ -4,13 +4,13 @@ metadata:
   version: "4.2.0"
   creationDate: "2025-07-10"
 corePlatform:
-  # Registry path to the release manifest OCI image of the Core Platform that this SUSE Product extends
-  image: "registry.suse.de/devel/unifiedcore/releases/0.6/containers/suse/uc/release-manifest:0.0.1"
+  # Release manifest OCI image of the Core Platform that this SUSE Product extends
+  image: "registry.suse.de/devel/unifiedcore/releases/0.6/containers/suse/uc/release-manifest:0.6_rke2_1.34"
 components:
   systemd:
     extensions:
       - name: "longhorn"
-        image: "https://download.suse.de/ibs/Devel:/UnifiedCore:/Main:/ToTest/sysexts/longhorn_2.7_x86-64.raw"
+        image: "registry.suse.de/devel/unifiedcore/releases/0.6/containers/suse/uc/longhorn:4.5-1.21"
   helm:
     charts:
       - chart: "cert-manager"
@@ -21,7 +21,7 @@ components:
           crds:
             enabled: true
       - chart: "rancher"
-        version: "2.12.2"
+        version: "2.13.0"
         namespace: "cattle-system"
         repository: "rancher"
         values:
