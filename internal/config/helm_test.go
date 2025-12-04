@@ -75,11 +75,22 @@ var _ = Describe("Helm tests", Label("helm"), func() {
 									},
 								},
 							},
+							{
+								Name:       "Endpoint Copier Operator",
+								Chart:      "endpoint-copier-operator",
+								Version:    "0.3.0",
+								Namespace:  "endpoint-copier-operator",
+								Repository: "suse-core-oci",
+							},
 						},
 						Repositories: []*api.HelmRepository{
 							{
 								Name: "suse-core",
 								URL:  "https://example.com/suse-core",
+							},
+							{
+								Name: "suse-core-oci",
+								URL:  "oci://example-1.com/charts",
 							},
 						},
 					},
@@ -104,11 +115,22 @@ var _ = Describe("Helm tests", Label("helm"), func() {
 								Namespace:  "neuvector-system",
 								Repository: "rancher-charts",
 							},
+							{
+								Name:       "KubeVirt",
+								Chart:      "kubevirt",
+								Version:    "0.6.0",
+								Namespace:  "kubevirt-system",
+								Repository: "kubevirt",
+							},
 						},
 						Repositories: []*api.HelmRepository{
 							{
 								Name: "rancher-charts",
 								URL:  "https://charts.rancher.io/",
+							},
+							{
+								Name: "kubevirt",
+								URL:  "oci://example-1.com/kv/charts",
 							},
 						},
 					},
@@ -168,7 +190,7 @@ var _ = Describe("Helm tests", Label("helm"), func() {
 						Charts: []*kubernetes.HelmChart{
 							{
 								Name:            "apache",
-								RepositoryName:  "apache-repo",
+								RepositoryName:  "apache",
 								TargetNamespace: "web",
 								Version:         "10.7.0",
 								ValuesFile:      "apache-values.yaml",
@@ -176,7 +198,7 @@ var _ = Describe("Helm tests", Label("helm"), func() {
 						},
 						Repositories: []*kubernetes.HelmRepository{
 							{
-								Name: "apache-repo",
+								Name: "apache",
 								URL:  "https://example.com/apache",
 							},
 						},
@@ -200,7 +222,7 @@ var _ = Describe("Helm tests", Label("helm"), func() {
 						Charts: []*kubernetes.HelmChart{
 							{
 								Name:            "apache",
-								RepositoryName:  "apache-repo",
+								RepositoryName:  "apache",
 								TargetNamespace: "web",
 								Version:         "10.7.0",
 								ValuesFile:      "apache-values.yaml",
@@ -280,7 +302,9 @@ var _ = Describe("Helm tests", Label("helm"), func() {
 					Components: release.Components{
 						HelmCharts: []release.HelmChart{
 							{Name: "metallb", ValuesFile: "metallb-values.yaml"},
+							{Name: "endpoint-copier-operator"},
 							{Name: "neuvector"},
+							{Name: "kubevirt"},
 						},
 					},
 				},
@@ -289,16 +313,26 @@ var _ = Describe("Helm tests", Label("helm"), func() {
 						Charts: []*kubernetes.HelmChart{
 							{
 								Name:            "apache",
-								RepositoryName:  "apache-repo",
+								RepositoryName:  "apache",
 								TargetNamespace: "web",
 								Version:         "10.7.0",
 								ValuesFile:      "apache-values.yaml",
 							},
+							{
+								Name:            "nginx",
+								RepositoryName:  "nginx",
+								TargetNamespace: "web",
+								Version:         "1.29.3",
+							},
 						},
 						Repositories: []*kubernetes.HelmRepository{
 							{
-								Name: "apache-repo",
+								Name: "apache",
 								URL:  "https://example.com/apache",
+							},
+							{
+								Name: "nginx",
+								URL:  "oci://example.com/web",
 							},
 						},
 					},
@@ -317,9 +351,12 @@ var _ = Describe("Helm tests", Label("helm"), func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(charts).To(ConsistOf(
 				"/helm/metallb.yaml",
+				"/helm/endpoint-copier-operator.yaml",
 				"/helm/neuvector-crd.yaml",
 				"/helm/neuvector.yaml",
-				"/helm/apache.yaml"))
+				"/helm/kubevirt.yaml",
+				"/helm/apache.yaml",
+				"/helm/nginx.yaml"))
 
 			// Verify the contents of the various written Helm resources
 			contents := `apiVersion: helm.cattle.io/v1
@@ -381,6 +418,38 @@ spec:
 			contents = `apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
+    name: endpoint-copier-operator
+    namespace: kube-system
+spec:
+    chart: oci://example-1.com/charts/endpoint-copier-operator
+    version: 0.3.0
+    targetNamespace: endpoint-copier-operator
+    createNamespace: true
+    backOffLimit: 20
+`
+			b, err = fs.ReadFile(filepath.Join(overlaysPath, helmPath, "endpoint-copier-operator.yaml"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(b)).To(Equal(contents))
+
+			contents = `apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+    name: kubevirt
+    namespace: kube-system
+spec:
+    chart: oci://example-1.com/kv/charts/kubevirt
+    version: 0.6.0
+    targetNamespace: kubevirt-system
+    createNamespace: true
+    backOffLimit: 20
+`
+			b, err = fs.ReadFile(filepath.Join(overlaysPath, helmPath, "kubevirt.yaml"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(b)).To(Equal(contents))
+
+			contents = `apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
     name: apache
     namespace: kube-system
 spec:
@@ -396,6 +465,22 @@ spec:
     backOffLimit: 20
 `
 			b, err = fs.ReadFile(filepath.Join(overlaysPath, helmPath, "apache.yaml"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(b)).To(Equal(contents))
+
+			contents = `apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+    name: nginx
+    namespace: kube-system
+spec:
+    chart: oci://example.com/web/nginx
+    version: 1.29.3
+    targetNamespace: web
+    createNamespace: true
+    backOffLimit: 20
+`
+			b, err = fs.ReadFile(filepath.Join(overlaysPath, helmPath, "nginx.yaml"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(b)).To(Equal(contents))
 		})

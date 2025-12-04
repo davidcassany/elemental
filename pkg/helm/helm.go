@@ -17,6 +17,11 @@ limitations under the License.
 
 package helm
 
+import (
+	"fmt"
+	"strings"
+)
+
 const (
 	helmChartAPIVersion = "helm.cattle.io/v1"
 	helmChartKind       = "HelmChart"
@@ -28,7 +33,7 @@ type CRD struct {
 	APIVersion string   `yaml:"apiVersion"`
 	Kind       string   `yaml:"kind"`
 	Metadata   Metadata `yaml:"metadata"`
-	Spec       CRDSpec  `yaml:"spec"`
+	Spec       Spec     `yaml:"spec"`
 }
 
 type Metadata struct {
@@ -36,7 +41,7 @@ type Metadata struct {
 	Namespace string `yaml:"namespace,omitempty"`
 }
 
-type CRDSpec struct {
+type Spec struct {
 	Chart           string `yaml:"chart"`
 	Version         string `yaml:"version"`
 	Repo            string `yaml:"repo,omitempty"`
@@ -46,18 +51,28 @@ type CRDSpec struct {
 	BackOffLimit    int    `yaml:"backOffLimit"`
 }
 
-func NewCRD(namespace, chart, version, valuesContent, repositoryURL string) *CRD {
+func NewCRD(namespace, chart, version, valuesContent, repository string) *CRD {
+	name := chart
+
+	if strings.HasPrefix(repository, "oci") {
+		// The repository is in fact an OCI registry.
+		// Use the full path for the chart identifier and drop the "repository" value.
+		// The latter is only valid for HTTP(s) repositories.
+		chart = fmt.Sprintf("%s/%s", repository, name)
+		repository = ""
+	}
+
 	return &CRD{
 		APIVersion: helmChartAPIVersion,
 		Kind:       helmChartKind,
 		Metadata: Metadata{
-			Name:      chart,
+			Name:      name,
 			Namespace: kubeSystemNamespace,
 		},
-		Spec: CRDSpec{
+		Spec: Spec{
 			Chart:           chart,
 			Version:         version,
-			Repo:            repositoryURL,
+			Repo:            repository,
 			ValuesContent:   valuesContent,
 			TargetNamespace: namespace,
 			CreateNamespace: true,
