@@ -30,10 +30,9 @@ const (
 )
 
 type Metadata struct {
-	Name             string   `yaml:"name"`
-	Version          string   `yaml:"version"`
-	UpgradePathsFrom []string `yaml:"upgradePathsFrom,omitempty"`
-	CreationDate     string   `yaml:"creationDate,omitempty"`
+	Name         string `yaml:"name"`
+	Version      string `yaml:"version"`
+	CreationDate string `yaml:"creationDate,omitempty"`
 }
 
 type Helm struct {

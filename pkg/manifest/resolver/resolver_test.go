@@ -148,13 +148,10 @@ func validateResolvedManifest(rm *resolver.ResolvedManifest, coreOnly bool) {
 	Expect(rm.CorePlatform.Metadata).ToNot(BeNil())
 	Expect(rm.CorePlatform.Metadata.Name).To(Equal("suse-core"))
 	Expect(rm.CorePlatform.Metadata.Version).To(Equal("1.0"))
-	Expect(len(rm.CorePlatform.Metadata.UpgradePathsFrom)).To(Equal(1))
-	Expect(rm.CorePlatform.Metadata.UpgradePathsFrom[0]).To(Equal("0.0.1"))
 	Expect(rm.CorePlatform.Metadata.CreationDate).To(Equal("2000-01-01"))
 
 	Expect(rm.CorePlatform.Components).ToNot(BeNil())
 	Expect(rm.CorePlatform.Components.OperatingSystem).ToNot(BeNil())
-	Expect(rm.CorePlatform.Components.OperatingSystem.Version).To(Equal("6.2"))
 	Expect(rm.CorePlatform.Components.OperatingSystem.Image.Base).To(Equal("registry.com/foo/bar/os-base:6.2"))
 	Expect(rm.CorePlatform.Components.OperatingSystem.Image.ISO).To(Equal("registry.com/foo/bar/installer-iso:6.2"))
 
@@ -189,8 +186,6 @@ func validateResolvedManifest(rm *resolver.ResolvedManifest, coreOnly bool) {
 		Expect(rm.ProductExtension.Metadata).ToNot(BeNil())
 		Expect(rm.ProductExtension.Metadata.Name).To(Equal("suse-edge"))
 		Expect(rm.ProductExtension.Metadata.Version).To(Equal("3.2.0"))
-		Expect(len(rm.ProductExtension.Metadata.UpgradePathsFrom)).To(Equal(1))
-		Expect(rm.ProductExtension.Metadata.UpgradePathsFrom[0]).To(Equal("3.1.2"))
 		Expect(rm.ProductExtension.Metadata.CreationDate).To(Equal("2025-01-20"))
 
 		Expect(rm.ProductExtension.CorePlatform).ToNot(BeNil())

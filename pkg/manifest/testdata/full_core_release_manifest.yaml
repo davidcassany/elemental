@@ -16,12 +16,9 @@
 metadata:
   name: "suse-core"
   version: "1.0"
-  upgradePathsFrom:
-    - "0.0.1"
   creationDate: "2000-01-01"
 components:
   operatingSystem:
-    version: "6.2"
     image:
       base: "registry.com/foo/bar/os-base:6.2"
       iso: "registry.com/foo/bar/installer-iso:6.2"

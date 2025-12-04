@@ -38,8 +38,7 @@ type Components struct {
 }
 
 type OperatingSystem struct {
-	Version string `yaml:"version"`
-	Image   Image  `yaml:"image"`
+	Image Image `yaml:"image"`
 }
 
 type Image struct {

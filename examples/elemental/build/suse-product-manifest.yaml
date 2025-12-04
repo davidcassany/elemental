@@ -2,8 +2,6 @@
 metadata:
   name: "suse-product"
   version: "4.2.0"
-  upgradePathsFrom:
-    - "4.1.9"
   creationDate: "2025-07-10"
 corePlatform:
   # Registry path to the release manifest OCI image of the Core Platform that this SUSE Product extends
