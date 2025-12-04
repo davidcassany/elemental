@@ -87,6 +87,6 @@ func (r *Resolver) resolveRecursive(uri string, rm *ResolvedManifest) error {
 	}
 	rm.ProductExtension = productManifest
 
-	coreReleaseManifestOCI := fmt.Sprintf("%s://%s:%s", source.OCI, rm.ProductExtension.CorePlatform.Image, rm.ProductExtension.CorePlatform.Version)
+	coreReleaseManifestOCI := fmt.Sprintf("%s://%s", source.OCI, rm.ProductExtension.CorePlatform.Image)
 	return r.resolveRecursive(coreReleaseManifestOCI, rm)
 }

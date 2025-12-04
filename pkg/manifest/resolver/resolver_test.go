@@ -189,8 +189,7 @@ func validateResolvedManifest(rm *resolver.ResolvedManifest, coreOnly bool) {
 		Expect(rm.ProductExtension.Metadata.CreationDate).To(Equal("2025-01-20"))
 
 		Expect(rm.ProductExtension.CorePlatform).ToNot(BeNil())
-		Expect(rm.ProductExtension.CorePlatform.Image).To(Equal("foo.example.com/bar/release-manifest"))
-		Expect(rm.ProductExtension.CorePlatform.Version).To(Equal("1.0"))
+		Expect(rm.ProductExtension.CorePlatform.Image).To(Equal("foo.example.com/bar/release-manifest:1.0"))
 
 		Expect(rm.ProductExtension.Components.Systemd.Extensions).To(HaveLen(1))
 		Expect(rm.ProductExtension.Components.Systemd.Extensions[0].Name).To(Equal("foo-ext"))
