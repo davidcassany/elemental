@@ -54,7 +54,7 @@ type Spec struct {
 func NewCRD(namespace, chart, version, valuesContent, repository string) *CRD {
 	name := chart
 
-	if strings.HasPrefix(repository, "oci") {
+	if strings.HasPrefix(repository, "oci://") {
 		// The repository is in fact an OCI registry.
 		// Use the full path for the chart identifier and drop the "repository" value.
 		// The latter is only valid for HTTP(s) repositories.
