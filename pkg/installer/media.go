@@ -375,6 +375,14 @@ func (i *Media) Customize(d *deployment.Deployment) (err error) {
 		return fmt.Errorf("failed computing recovery size increasal: %w", err)
 	}
 
+	ironicPart := &deployment.Partition{
+		Role:       deployment.Data,
+		Size:       64,
+		Label:      "config-2",
+		FileSystem: deployment.VFat,
+	}
+	deployment.WithPartitions(2, ironicPart)(installDesc)
+
 	err = i.writeInstallDescription(filepath.Join(assetsPath, installDir), installDesc)
 	if err != nil {
 		return err
@@ -717,6 +725,15 @@ func (i Media) customizeDisk(tempDir string, d *deployment.Deployment, mappedFil
 		}
 	}
 
+	var ironicPart *deployment.Partition
+	for _, disk := range d.Disks {
+		for _, part := range disk.Partitions {
+			if part.Label == "config-2" {
+				ironicPart = part
+			}
+		}
+	}
+
 	parts := []repart.Partition{
 		{
 			Partition: esp,
@@ -728,6 +745,9 @@ func (i Media) customizeDisk(tempDir string, d *deployment.Deployment, mappedFil
 			CopyFiles: []string{fmt.Sprintf("%s:/", isoDir)},
 			Excludes:  []string{filepath.Join(isoDir, "boot"), filepath.Join(isoDir, "EFI")},
 		},
+	}
+	if ironicPart != nil {
+		parts = append(parts, repart.Partition{Partition: ironicPart})
 	}
 	return repart.CreateDiskImage(i.s, i.outputFile, 0, parts)
 }
