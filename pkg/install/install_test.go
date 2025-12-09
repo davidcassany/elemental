@@ -40,9 +40,9 @@ func TestInstallSuite(t *testing.T) {
 }
 
 const systemdRepartJson = `[
-	{"uuid" : "c60d1845-7b04-4fc4-8639-8c49eb7277d5", "partno" : 0},
-	{"uuid" : "ddb334a8-48a2-c4de-ddb3-849eb2443e92", "partno" : 1},
-	{"uuid" : "34a8abb8-ddb3-48a2-8ecc-2443e92c7510", "partno" : 2}
+	{"uuid" : "c60d1845-7b04-4fc4-8639-8c49eb7277d5", "file" : "/tmp/elemental-repart.d/0-efi.conf"},
+	{"uuid" : "ddb334a8-48a2-c4de-ddb3-849eb2443e92", "file" : "/tmp/elemental-repart.d/1-recovery.conf"},
+	{"uuid" : "34a8abb8-ddb3-48a2-8ecc-2443e92c7510", "file" : "/tmp/elemental-repart.d/2-system.conf"}
 ]`
 
 const sectorSizeJson = `{
@@ -181,7 +181,7 @@ var _ = Describe("Install", Label("install"), func() {
 	})
 	It("fails if systemd-repart partitions do not match deployment", func() {
 		// systemd-repart reports a recovery partition that is not part of the deployment
-		Expect(i.Install(d)).To(MatchError(ContainSubstring("partitions mismatch")))
+		Expect(i.Install(d)).To(MatchError(ContainSubstring("matching partitions and systemd-repart JSON output")))
 	})
 	It("fails creating subvolumes", func() {
 		sideEffects["btrfs"] = func(args ...string) ([]byte, error) {

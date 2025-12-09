@@ -195,15 +195,18 @@ func runSystemdRepart(s *sys.System, target string, parts []Partition, flags ...
 		}
 	}()
 
+	partsMap := map[string]*deployment.Partition{}
 	for i, part := range parts {
 		if part.Partition == nil {
 			return fmt.Errorf("cannot configure a nil partition")
 		}
-		partConf := fmt.Sprintf("%d-%s.conf", i, part.Partition.Role.String())
-		err = CreatePartitionConfFile(s, filepath.Join(dir, partConf), part)
+
+		partConf := filepath.Join(dir, fmt.Sprintf("%d-%s.conf", i, part.Partition.Role.String()))
+		err = CreatePartitionConfFile(s, partConf, part)
 		if err != nil {
 			return fmt.Errorf("failed generation of '%s' systemd-repart configuration file: %w", partConf, err)
 		}
+		partsMap[partConf] = part.Partition
 	}
 
 	args := []string{"--json=pretty", fmt.Sprintf("--definitions=%s", dir), "--dry-run=no"}
@@ -221,20 +224,26 @@ func runSystemdRepart(s *sys.System, target string, parts []Partition, flags ...
 		return fmt.Errorf("failed partitioning disk '%s' with systemd-repart: %w", target, err)
 	}
 	uuids := []struct {
-		UUID    string `json:"uuid,omitempty"`
-		PartNum uint   `json:"partno,omitempty"`
+		UUID string `json:"uuid,omitempty"`
+		File string `json:"file,omitempty"`
 	}{}
 
 	err = json.Unmarshal(out, &uuids)
 	if err != nil {
 		return fmt.Errorf("failed parsing systemd-repart JSON output: %w", err)
 	}
-	if len(uuids) != len(parts) {
-		return fmt.Errorf("partitions mismatch between Deployment and systemd-repart JSON output: %s", string(out))
-	}
 
 	for _, uuid := range uuids {
-		parts[uuid.PartNum].Partition.UUID = uuid.UUID
+		// Pre-existing partitions and not necessarily listed in the repart configuration, ignore
+		// unmatched partitions
+		if uuid.File == "" {
+			continue
+		}
+		part := partsMap[uuid.File]
+		if part == nil {
+			return fmt.Errorf("matching partitions and systemd-repart JSON output")
+		}
+		partsMap[uuid.File].UUID = uuid.UUID
 	}
 	return nil
 }

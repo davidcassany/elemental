@@ -39,8 +39,8 @@ func TestRepartSuite(t *testing.T) {
 }
 
 const systemdRepartJson = `[
-	{"uuid" : "c60d1845-7b04-4fc4-8639-8c49eb7277d5", "partno" : 0},
-	{"uuid" : "ddb334a8-48a2-c4de-ddb3-849eb2443e92", "partno" : 1}
+	{"uuid" : "c60d1845-7b04-4fc4-8639-8c49eb7277d5", "file" : "/tmp/elemental-repart.d/0-efi.conf"},
+	{"uuid" : "ddb334a8-48a2-c4de-ddb3-849eb2443e92", "file" : "/tmp/elemental-repart.d/1-system.conf"}
 ]`
 
 const sectorSizeJson = `{
@@ -185,13 +185,13 @@ var _ = Describe("Systemd-repart tests", Label("systemd-repart"), func() {
 		}}))
 	})
 
-	It("fails if systemd-repart does not report all defined partitions", func() {
+	It("fails if systemd-repart reports partitions not matching the deployment", func() {
 		d := deployment.DefaultDeployment()
 		deployment.WithConfigPartition(0)(d)
 		Expect(len(d.Disks)).To(Equal(1))
 		d.Disks[0].Device = "/dev/device"
 		Expect(repart.PartitionAndFormatDevice(s, d.Disks[0])).To(
-			MatchError(ContainSubstring("partitions mismatch")),
+			MatchError(ContainSubstring("matching partitions and systemd-repart JSON output")),
 		)
 	})
 
