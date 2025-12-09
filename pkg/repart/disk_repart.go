@@ -228,6 +228,7 @@ func runSystemdRepart(s *sys.System, target string, parts []Partition, flags ...
 		File string `json:"file,omitempty"`
 	}{}
 
+	s.Logger().Debug("systemd-repart output to parse:\n%s", string(out))
 	err = json.Unmarshal(out, &uuids)
 	if err != nil {
 		return fmt.Errorf("failed parsing systemd-repart JSON output: %w", err)
