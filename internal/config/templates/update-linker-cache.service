@@ -1,7 +1,7 @@
 [Unit]
 Description=Update linker cache for libraries provided by sysexts
 BindsTo=systemd-sysext.service
-Requires=systemd-sysext.service
+After=systemd-sysext.service
 DefaultDependencies=no
 # Keep in sync with systemd-sysext.service
 ConditionDirectoryNotEmpty=|/etc/extensions
