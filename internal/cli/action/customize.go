@@ -134,8 +134,8 @@ func setupFileExtractor(ctx context.Context, s *sys.System, outDir config.Output
 }
 
 func digestCustomizeDefinition(f vfs.FS, args *cmd.CustomizeFlags) (def *image.Definition, err error) {
-	outputPath := args.OutputPath
-	if outputPath == "" {
+	outputPath := filepath.Join(args.CustomizeOutput, args.OutputPath)
+	if args.OutputPath == "" {
 		imageName := fmt.Sprintf("image-%s.%s", time.Now().UTC().Format("2006-01-02T15-04-05"), args.MediaType)
 		outputPath = filepath.Join(args.CustomizeOutput, imageName)
 	}
