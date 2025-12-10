@@ -38,6 +38,7 @@ import (
 const (
 	ensureSysextUnitName        = "ensure-sysext.service"
 	reloadKernelModulesUnitName = "reload-kernel-modules.service"
+	updateLinkerCacheUnitName   = "update-linker-cache.service"
 	k8sResourcesUnitName        = "k8s-resource-installer.service"
 	k8sConfigUnitName           = "k8s-config-installer.service"
 )
@@ -48,6 +49,9 @@ var (
 
 	//go:embed templates/reload-kernel-modules.service
 	reloadKernelModulesUnit string
+
+	//go:embed templates/update-linker-cache.service
+	updateLinkerCacheUnit string
 
 	//go:embed templates/k8s-resource-installer.service.tpl
 	k8sResourceUnitTpl string
@@ -134,6 +138,7 @@ func (m *Manager) configureIgnition(conf *image.Configuration, outputDir OutputD
 
 		config.AddSystemdUnit(ensureSysextUnitName, ensureSysextUnit, true)
 		config.AddSystemdUnit(reloadKernelModulesUnitName, reloadKernelModulesUnit, true)
+		config.AddSystemdUnit(updateLinkerCacheUnitName, updateLinkerCacheUnit, true)
 	}
 
 	ignitionFile := filepath.Join(outputDir.FirstbootConfigDir(), image.IgnitionFilePath())

@@ -1,0 +1,21 @@
+[Unit]
+Description=Update linker cache for libraries provided by sysexts
+BindsTo=systemd-sysext.service
+Requires=systemd-sysext.service
+DefaultDependencies=no
+# Keep in sync with systemd-sysext.service
+ConditionDirectoryNotEmpty=|/etc/extensions
+ConditionDirectoryNotEmpty=|/run/extensions
+ConditionDirectoryNotEmpty=|/var/lib/extensions
+ConditionDirectoryNotEmpty=|/usr/local/lib/extensions
+ConditionDirectoryNotEmpty=|/usr/lib/extensions
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/ldconfig
+Restart=on-failure
+RestartSec=3s
+
+[Install]
+WantedBy=sysinit.target
