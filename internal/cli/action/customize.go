@@ -45,33 +45,34 @@ func Customize(ctx *cli.Context) error {
 	}
 	system := ctx.App.Metadata["system"].(*sys.System)
 	logger := system.Logger()
+	fs := system.FS()
 	args := &cmd.CustomizeArgs
 
-	ctxCancel, cancelFunc := signal.NotifyContext(ctx.Context, syscall.SIGTERM, syscall.SIGINT)
-	defer cancelFunc()
+	logger.Info("Customizing image started")
 
-	logger.Info("Customizing image")
-
-	customizeDir := fmt.Sprintf("customize-%s", time.Now().UTC().Format("2006-01-02T15-04-05"))
-	outDir, err := config.CreateOutputDir(system.FS(), args.CustomizeOutput, customizeDir, 0700)
+	tmpDir, err := vfs.TempDir(fs, "", "customize-")
 	if err != nil {
-		logger.Error("Creating customize directory '%s' failed", outDir)
+		logger.Error("Creating temporary working directory failed")
 		return err
 	}
 
 	defer func() {
-		logger.Debug("Cleaning up customize-dir %s", outDir)
-		rmErr := system.FS().RemoveAll(string(outDir))
+		logger.Debug("Cleaning up temporary working directory", tmpDir)
+		rmErr := fs.RemoveAll(tmpDir)
 		if rmErr != nil {
-			logger.Error("Cleaning up customize-dir '%s' failed: %v", outDir, rmErr)
+			logger.Error("Cleaning up temporary working directory '%s' failed: %v", tmpDir, rmErr)
 		}
 	}()
 
-	def, err := digestCustomizeDefinition(system.FS(), args)
+	def, err := digestCustomizeDefinition(fs, args)
 	if err != nil {
 		logger.Error("Digesting image definition from customize flags failed")
 		return err
 	}
+
+	outDir := config.OutputDir(tmpDir)
+	ctxCancel, cancelFunc := signal.NotifyContext(ctx.Context, syscall.SIGTERM, syscall.SIGINT)
+	defer cancelFunc()
 
 	customizeRunner, err := setupCustomizeRunner(ctxCancel, system, args, outDir)
 	if err != nil {
@@ -134,10 +135,10 @@ func setupFileExtractor(ctx context.Context, s *sys.System, outDir config.Output
 }
 
 func digestCustomizeDefinition(f vfs.FS, args *cmd.CustomizeFlags) (def *image.Definition, err error) {
-	outputPath := filepath.Join(args.CustomizeOutput, args.OutputPath)
-	if args.OutputPath == "" {
+	outputPath := args.OutputPath
+	if outputPath == "" {
 		imageName := fmt.Sprintf("image-%s.%s", time.Now().UTC().Format("2006-01-02T15-04-05"), args.MediaType)
-		outputPath = filepath.Join(args.CustomizeOutput, imageName)
+		outputPath = filepath.Join(args.ConfigDir, imageName)
 	}
 
 	p, err := platform.Parse(args.Platform)

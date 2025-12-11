@@ -26,12 +26,11 @@ import (
 )
 
 type CustomizeFlags struct {
-	ConfigDir       string
-	OutputPath      string
-	Platform        string
-	CustomizeOutput string
-	MediaType       string
-	Local           bool
+	ConfigDir  string
+	OutputPath string
+	Platform   string
+	MediaType  string
+	Local      bool
 }
 
 var CustomizeArgs CustomizeFlags
@@ -66,12 +65,6 @@ func NewCustomizeCommand(appName string, action func(*cli.Context) error) *cli.C
 				Usage:       "Target platform",
 				Destination: &CustomizeArgs.Platform,
 				Value:       fmt.Sprintf("linux/%s", runtime.GOARCH),
-			},
-			&cli.StringFlag{
-				Name:        "customize-output",
-				Usage:       "Full path to the directory to store customize artifacts",
-				Destination: &CustomizeArgs.CustomizeOutput,
-				Value:       "_customize",
 			},
 			&cli.BoolFlag{
 				Name:        "local",
