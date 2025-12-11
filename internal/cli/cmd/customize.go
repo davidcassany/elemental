@@ -44,7 +44,7 @@ func NewCustomizeCommand(appName string, action func(*cli.Context) error) *cli.C
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "type",
-				Usage:       "Type of the installer media, 'iso' or 'raw' (default: iso)",
+				Usage:       "Type of the installer media, 'iso' or 'raw'",
 				Destination: &CustomizeArgs.MediaType,
 				Value:       installer.ISO.String(),
 			},
