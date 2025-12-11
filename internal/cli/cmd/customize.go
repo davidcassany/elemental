@@ -64,7 +64,7 @@ func NewCustomizeCommand(appName string, action func(*cli.Context) error) *cli.C
 			},
 			&cli.StringFlag{
 				Name:        "mode",
-				Usage:       "Customization mode, 'embedded' or 'split'",
+				Usage:       "Customization mode, 'embedded' (config in image) or 'split' (config separate)",
 				Destination: &CustomizeArgs.Mode,
 				Value:       "embedded",
 			},
