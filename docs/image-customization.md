@@ -67,29 +67,30 @@ Starting the customization process can be done either by directly working with t
 sudo elemental3 customize --type <raw/iso> --config-dir <path>
 ```
 
-Unless configured otherwise, after execution, the process will create a directory called `_customize` which will contain the ready to boot image.
-
 > **IMPORTANT:** The above process is long running, as it involves pulling multiple component images over the network.
 > For a quicker execution, use locally pulled container images in combination with the `--local` flag.
 
-> **NOTE:** If you have specified either the `--customize-output` or `--output` options, your customize directory and/or image name will be different.
+Unless configured otherwise, after execution, the resulting ready-to-boot image will reside in the configuration directory path and use the `image-<timestamp>.<image-type>` naming format.
+
+> **NOTE:** You can specify another path for the output using the `--output (-o)` option, however, be mindful if running Elemental 3 from a container,
+> as it would require including the mounted configuration directory as a prefix (e.g. --output /config/<desired-path>).
 
 #### Container image
 
 > **IMPORTANT:** Access to SUSE's internal VPN is required. As of this moment, our component images are not publicly available. This will change in the future.
 
-> **NOTE:** This section assumes you have pulled the `elemental3` container image and referenced it in the `ELEMENTAL_IMAGE` variable. 
+> **NOTE:** This section assumes you have pulled the `elemental3` container image and referenced it in the `ELEMENTAL_IMAGE` variable.
 
 Run the customization process:
 
 * For a RAW disk image:
    ```shell
-   podman run -it -v <PATH_TO_CONFIG_DIR>:/config-dir $ELEMENTAL_IMAGE customize --type raw --config-dir /config-dir --output /config-dir/customized.raw
+   podman run -it -v <PATH_TO_CONFIG_DIR>:/config $ELEMENTAL_IMAGE customize --type raw
    ```
 
 * For ISO media:
    ```shell
-   podman run -it -v <PATH_TO_CONFIG_DIR>:/config-dir $ELEMENTAL_IMAGE customize --type iso --config-dir /config-dir --output /config-dir/customized.iso
+   podman run -it -v <PATH_TO_CONFIG_DIR>:/config $ELEMENTAL_IMAGE customize --type iso
    ```
 
 > **IMPORTANT:** The above process is long running, as it involves pulling multiple component images over the network.
@@ -101,7 +102,7 @@ Run the customization process:
 >   ```
 > 2. Run the `elemental3` container with the mounted podman socket:
 >   ```shell
->   podman run -it -v <PATH_TO_CONFIG_DIR>:/config-dir -v /run/podman/podman.sock:/var/run/docker.sock $ELEMENTAL_IMAGE customize --type <raw/iso> --config-dir /config-dir --output /config-dir/customized.<raw/iso> --local
+>   podman run -it -v <PATH_TO_CONFIG_DIR>:/config -v /run/podman/podman.sock:/var/run/docker.sock $ELEMENTAL_IMAGE customize --type <raw/iso> --local
 >   ```
 
 Unless configured otherwise, the above process will produce a customized RAW or ISO image under the specified `<PATH_TO_CONFIG_DIR>` directory.
@@ -118,7 +119,7 @@ The customized image can be booted as any other regular image. Below you can fin
    virt-install --name customized-raw \
                --ram 16000 \
                --vcpus 10 \
-               --disk path="customized.raw",format=raw \
+               --disk path="<customized-image-path>",format=raw \
                --osinfo detect=on,name=sle-unknown \
                --graphics none \
                --console pty,target_type=serial \
@@ -209,7 +210,7 @@ The contents of this directory include:
    > **NOTE:** This command assumes that the Podman socket was started and the `$ELEMENTAL_IMAGE` points to a valid `elemental3` container image.
 
    ```shell
-   podman run -it -v .:/config-dir -v /run/podman/podman.sock:/var/run/docker.sock $ELEMENTAL_IMAGE customize --type raw --config-dir /config-dir --output /config-dir/customized.raw --local
+   podman run -it -v .:/config -v /run/podman/podman.sock:/var/run/docker.sock $ELEMENTAL_IMAGE customize --type raw --local
    ```
    
 After execution, for a RAW disk type, your `examples/elemental/customize/linux-only` directory should look similar to:
@@ -217,8 +218,8 @@ After execution, for a RAW disk type, your `examples/elemental/customize/linux-o
 ```text
 .
 ├── butane.yaml
-├── customized.raw <- created by the customization process
-├── customized.raw.sha256 <- created by the customization process
+├── image-2025-12-11T12-19-06.raw        <- created by the customization process
+├── image-2025-12-11T12-19-06.raw.sha256 <- created by the customization process
 ├── install.yaml
 ├── network/
 └── release.yaml
@@ -232,7 +233,7 @@ Following what is described in the "[Booting a customized image](#booting-a-cust
 virt-install --name linux-only-example \
              --ram 16000 \
              --vcpus 10 \
-             --disk path="customized.raw",format=raw \
+             --disk path="<customized-image-path>",format=raw \
              --osinfo detect=on,name=sle-unknown \
              --graphics none \
              --console pty,target_type=serial \
@@ -319,7 +320,7 @@ The contents of this directory include:
    > **NOTE:** This command assumes that the Podman socket was started and the `$ELEMENTAL_IMAGE` points to a valid `elemental3` container image.
 
    ```shell
-   podman run -it -v .:/config-dir -v /run/podman/podman.sock:/var/run/docker.sock $ELEMENTAL_IMAGE customize --type raw --config-dir /config-dir --output /config-dir/customized.raw --local
+   podman run -it -v .:/config -v /run/podman/podman.sock:/var/run/docker.sock $ELEMENTAL_IMAGE customize --type raw --local
    ```
    
 After execution, for a RAW disk type, your `examples/elemental/customize/single-node/` directory should look similar to:
@@ -327,8 +328,8 @@ After execution, for a RAW disk type, your `examples/elemental/customize/single-
 ```text
 .
 ├── butane.yaml
-├── customized.raw <- created by the customization process
-├── customized.raw.sha256 <- created by the customization process
+├── image-2025-12-11T12-19-06.raw        <- created by the customization process
+├── image-2025-12-11T12-19-06.raw.sha256 <- created by the customization process
 ├── install.yaml
 ├── kubernetes/
 ├── kubernetes.yaml
@@ -345,7 +346,7 @@ Following what is described in the [Booting a customized image](#booting-a-custo
 virt-install --name single-node-example \
              --ram 16000 \
              --vcpus 10 \
-             --disk path="customized.raw",format=raw \
+             --disk path="<customized-image-path>",format=raw \
              --osinfo detect=on,name=sle-unknown \
              --graphics none \
              --console pty,target_type=serial \
@@ -512,7 +513,7 @@ The contents of the directory are the same as the contents for a [single-node Ku
    > **NOTE:** This command assumes that the Podman socket was started and the `$ELEMENTAL_IMAGE` points to a valid `elemental3` container image.
 
    ```shell
-   podman run -it -v .:/config-dir -v /run/podman/podman.sock:/var/run/docker.sock $ELEMENTAL_IMAGE customize --type raw --config-dir /config-dir --output /config-dir/customized.raw --local
+   podman run -it -v .:/config -v /run/podman/podman.sock:/var/run/docker.sock $ELEMENTAL_IMAGE customize --type raw --local
    ```
    
 After execution, for a RAW disk type, your `examples/elemental/customize/single-node/` directory should look similar to:
@@ -520,8 +521,8 @@ After execution, for a RAW disk type, your `examples/elemental/customize/single-
 ```text
 .
 ├── butane.yaml
-├── customized.raw <- created by the customization process
-├── customized.raw.sha256 <- created by the customization process
+├── image-2025-12-11T12-19-06.raw        <- created by the customization process
+├── image-2025-12-11T12-19-06.raw.sha256 <- created by the customization process
 ├── install.yaml
 ├── kubernetes/
 ├── kubernetes.yaml
