@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	_ "embed"
 
@@ -134,8 +133,7 @@ func (r *Runner) Run(ctx context.Context, def *image.Definition, outputDir confi
 		media := installer.NewMedia(ctx, r.System, mediaType, mediaOpts...)
 		media.InputFile = iso
 		media.OutputDir = filepath.Dir(def.Image.OutputImageName)
-		imageName := filepath.Base(def.Image.OutputImageName)
-		media.Name = strings.TrimSuffix(imageName, filepath.Ext(imageName))
+		media.Name = filepath.Base(def.Image.OutputImageName)
 		r.Media = media
 	}
 
