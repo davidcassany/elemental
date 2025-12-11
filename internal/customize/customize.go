@@ -175,7 +175,8 @@ func parseDeployment(
 	d := &deployment.Deployment{Disks: []*deployment.Disk{customizeDisk}}
 
 	additionalPartitions := append([]*deployment.Partition{}, customPartitions...)
-	if ok, _ := vfs.Exists(fs, output.FirstbootConfigDir()); ok {
+	firstbootConfigExists, _ := vfs.Exists(fs, output.FirstbootConfigDir())
+	if firstbootConfigExists && output.ConfigPath == "" {
 		configSize, err := vfs.DirSizeMB(fs, output.FirstbootConfigDir())
 		if err != nil {
 			return nil, fmt.Errorf("computing configuration partition size: %w", err)
