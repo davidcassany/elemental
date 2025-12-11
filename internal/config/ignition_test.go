@@ -33,7 +33,9 @@ import (
 )
 
 var _ = Describe("Ignition configuration", func() {
-	const outputDir OutputDir = "/_out"
+	var output = Output{
+		RootPath: "/_out",
+	}
 
 	var system *sys.System
 	var fs vfs.FS
@@ -49,7 +51,7 @@ var _ = Describe("Ignition configuration", func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(vfs.MkdirAll(fs, string(outputDir), vfs.DirPerm)).To(Succeed())
+		Expect(vfs.MkdirAll(fs, output.RootPath, vfs.DirPerm)).To(Succeed())
 
 		system, err = sys.NewSystem(
 			sys.WithLogger(log.New(log.WithBuffer(buffer))),
@@ -67,9 +69,9 @@ var _ = Describe("Ignition configuration", func() {
 	It("Does no Ignition configuration if data is not provided", func() {
 		conf := &image.Configuration{}
 
-		ignitionFile := filepath.Join(outputDir.FirstbootConfigDir(), image.IgnitionFilePath())
+		ignitionFile := filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath())
 
-		Expect(m.configureIgnition(conf, outputDir, "", "", nil)).To(Succeed())
+		Expect(m.configureIgnition(conf, output, "", "", nil)).To(Succeed())
 		ok, err := vfs.Exists(system.FS(), ignitionFile)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeFalse())
@@ -95,9 +97,9 @@ passwd:
 
 		Expect(err).NotTo(HaveOccurred())
 
-		ignitionFile := filepath.Join(outputDir.FirstbootConfigDir(), image.IgnitionFilePath())
+		ignitionFile := filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath())
 
-		Expect(m.configureIgnition(conf, outputDir, "", "", nil)).To(Succeed())
+		Expect(m.configureIgnition(conf, output, "", "", nil)).To(Succeed())
 		ok, err := vfs.Exists(system.FS(), ignitionFile)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeTrue())
@@ -108,12 +110,12 @@ passwd:
 
 	It("Configures kubernetes via Ignition with the given k8s script", func() {
 		conf := &image.Configuration{}
-		ignitionFile := filepath.Join(outputDir.FirstbootConfigDir(), image.IgnitionFilePath())
+		ignitionFile := filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath())
 
-		k8sScript := filepath.Join(outputDir.OverlaysDir(), "path/to/k8s/script.sh")
-		k8sConfScript := filepath.Join(outputDir.OverlaysDir(), "path/to/k8s/conf_script.sh")
+		k8sScript := filepath.Join(output.OverlaysDir(), "path/to/k8s/script.sh")
+		k8sConfScript := filepath.Join(output.OverlaysDir(), "path/to/k8s/conf_script.sh")
 
-		Expect(m.configureIgnition(conf, outputDir, k8sScript, k8sConfScript, nil)).To(Succeed())
+		Expect(m.configureIgnition(conf, output, k8sScript, k8sConfScript, nil)).To(Succeed())
 		ok, err := vfs.Exists(system.FS(), ignitionFile)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeTrue())
@@ -128,9 +130,9 @@ passwd:
 	It("Writes systemd extension via Ignition", func() {
 		conf := &image.Configuration{}
 		ext := []api.SystemdExtension{{Name: "ext1", Image: "ext1-image"}}
-		ignitionFile := filepath.Join(outputDir.FirstbootConfigDir(), image.IgnitionFilePath())
+		ignitionFile := filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath())
 
-		Expect(m.configureIgnition(conf, outputDir, "", "", ext)).To(Succeed())
+		Expect(m.configureIgnition(conf, output, "", "", ext)).To(Succeed())
 
 		ok, err := vfs.Exists(system.FS(), ignitionFile)
 		Expect(err).NotTo(HaveOccurred())
@@ -160,17 +162,17 @@ passwd:
     ssh_authorized_keys:
     - key1
 `
-		k8sScript := filepath.Join(outputDir.OverlaysDir(), "path/to/k8s/script.sh")
-		k8sConfScript := filepath.Join(outputDir.OverlaysDir(), "path/to/k8s/conf_script.sh")
+		k8sScript := filepath.Join(output.OverlaysDir(), "path/to/k8s/script.sh")
+		k8sConfScript := filepath.Join(output.OverlaysDir(), "path/to/k8s/conf_script.sh")
 
 		Expect(parseAny([]byte(butaneConfigString), &butane)).To(Succeed())
 		conf := &image.Configuration{
 			ButaneConfig: butane,
 		}
 
-		ignitionFile := filepath.Join(outputDir.FirstbootConfigDir(), image.IgnitionFilePath())
+		ignitionFile := filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath())
 
-		Expect(m.configureIgnition(conf, outputDir, k8sScript, k8sConfScript, nil)).To(MatchError(
+		Expect(m.configureIgnition(conf, output, k8sScript, k8sConfScript, nil)).To(MatchError(
 			ContainSubstring("No translator exists for variant unknown with version"),
 		))
 		ok, err := vfs.Exists(system.FS(), ignitionFile)
@@ -194,8 +196,8 @@ passwd:
 			ButaneConfig: butane,
 		}
 
-		ignitionFile := filepath.Join(outputDir.FirstbootConfigDir(), image.IgnitionFilePath())
-		Expect(m.configureIgnition(conf, outputDir, "", "", nil)).To(Succeed())
+		ignitionFile := filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath())
+		Expect(m.configureIgnition(conf, output, "", "", nil)).To(Succeed())
 		ok, err := vfs.Exists(system.FS(), ignitionFile)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeTrue())

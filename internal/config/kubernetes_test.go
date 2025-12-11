@@ -124,7 +124,9 @@ var _ = Describe("Kubernetes", func() {
 	})
 
 	Describe("Configuration", func() {
-		const outputDir OutputDir = "/_out"
+		var output = Output{
+			RootPath: "/_out",
+		}
 
 		var system *sys.System
 		var fs vfs.FS
@@ -135,7 +137,7 @@ var _ = Describe("Kubernetes", func() {
 			fs, cleanup, err = sysmock.TestFS(nil)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vfs.MkdirAll(fs, string(outputDir), vfs.DirPerm)).To(Succeed())
+			Expect(vfs.MkdirAll(fs, output.RootPath, vfs.DirPerm)).To(Succeed())
 
 			system, err = sys.NewSystem(
 				sys.WithLogger(log.New(log.WithDiscardAll())),
@@ -178,7 +180,7 @@ var _ = Describe("Kubernetes", func() {
 				},
 			}
 
-			script, confScript, err := m.configureKubernetes(context.Background(), conf, manifest, outputDir)
+			script, confScript, err := m.configureKubernetes(context.Background(), conf, manifest, output)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError("configuring helm charts: helm error"))
 			Expect(script).To(BeEmpty())
@@ -221,18 +223,18 @@ var _ = Describe("Kubernetes", func() {
 				},
 			}
 
-			script, confScript, err := m.configureKubernetes(context.Background(), conf, manifest, outputDir)
+			script, confScript, err := m.configureKubernetes(context.Background(), conf, manifest, output)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(script).To(Equal("/var/lib/elemental/kubernetes/k8s_res_deploy.sh"))
 
 			// Verify deployment script contents
-			b, err := fs.ReadFile(filepath.Join(outputDir.OverlaysDir(), script))
+			b, err := fs.ReadFile(filepath.Join(output.OverlaysDir(), script))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(b)).To(ContainSubstring("deployHelmCharts"))
 			Expect(string(b)).To(ContainSubstring("rancher.yaml"))
 			Expect(string(b)).To(ContainSubstring("deployManifests"))
 
-			_, err = fs.ReadFile(filepath.Join(outputDir.OverlaysDir(), confScript))
+			_, err = fs.ReadFile(filepath.Join(output.OverlaysDir(), confScript))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -260,7 +262,7 @@ var _ = Describe("Kubernetes", func() {
 				},
 			}
 
-			script, confScript, err := m.configureKubernetes(context.Background(), conf, manifest, outputDir)
+			script, confScript, err := m.configureKubernetes(context.Background(), conf, manifest, output)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(script).To(BeEmpty())
 			Expect(confScript).ToNot(BeEmpty())

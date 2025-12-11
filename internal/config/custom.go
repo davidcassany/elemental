@@ -33,7 +33,7 @@ var (
 	catalystScript string
 )
 
-func (m *Manager) configureCustomScripts(conf *image.Configuration, outputDir OutputDir) error {
+func (m *Manager) configureCustomScripts(conf *image.Configuration, output Output) error {
 	if conf.Custom.ScriptsDir == "" {
 		m.system.Logger().Info("Custom configuration scripts not provided, skipping.")
 		return nil
@@ -41,7 +41,7 @@ func (m *Manager) configureCustomScripts(conf *image.Configuration, outputDir Ou
 
 	fs := m.system.FS()
 
-	catalystDir := outputDir.CatalystConfigDir()
+	catalystDir := output.CatalystConfigDir()
 	if err := vfs.MkdirAll(fs, catalystDir, vfs.DirPerm); err != nil {
 		return fmt.Errorf("creating catalyst directory in overlays: %w", err)
 	}

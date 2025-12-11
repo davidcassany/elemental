@@ -32,7 +32,9 @@ import (
 )
 
 var _ = Describe("Custom", func() {
-	const outputDir OutputDir = "/_out"
+	var output = Output{
+		RootPath: "/_out",
+	}
 
 	var m *Manager
 	var system *sys.System
@@ -40,7 +42,7 @@ var _ = Describe("Custom", func() {
 	var cleanup func()
 	var err error
 
-	var catalystScriptPath = filepath.Join(outputDir.CatalystConfigDir(), "script")
+	var catalystScriptPath = filepath.Join(output.CatalystConfigDir(), "script")
 
 	BeforeEach(func() {
 		fs, cleanup, err = sysmock.TestFS(map[string]any{
@@ -64,7 +66,7 @@ var _ = Describe("Custom", func() {
 	})
 
 	It("Skips configuration", func() {
-		err := m.configureCustomScripts(&image.Configuration{}, "")
+		err := m.configureCustomScripts(&image.Configuration{}, Output{})
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(vfs.Exists(fs, catalystScriptPath)).To(BeFalse())
@@ -83,7 +85,7 @@ var _ = Describe("Custom", func() {
 			},
 		}
 
-		err = m.configureCustomScripts(conf, outputDir)
+		err = m.configureCustomScripts(conf, output)
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError(ContainSubstring("creating catalyst directory in overlays:")))
 
@@ -97,7 +99,7 @@ var _ = Describe("Custom", func() {
 			},
 		}
 
-		err := m.configureCustomScripts(conf, outputDir)
+		err := m.configureCustomScripts(conf, output)
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError(ContainSubstring("/etc/non-existing: no such file or directory")))
 
@@ -114,7 +116,7 @@ var _ = Describe("Custom", func() {
 			},
 		}
 
-		err = m.configureCustomScripts(conf, outputDir)
+		err = m.configureCustomScripts(conf, output)
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError("directories under /etc/custom/scripts are not supported"))
 
@@ -129,7 +131,7 @@ var _ = Describe("Custom", func() {
 			},
 		}
 
-		err := m.configureCustomScripts(conf, outputDir)
+		err := m.configureCustomScripts(conf, output)
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError(ContainSubstring("/etc/non-existing: no such file or directory")))
 
@@ -144,7 +146,7 @@ var _ = Describe("Custom", func() {
 			},
 		}
 
-		Expect(m.configureCustomScripts(conf, outputDir)).To(Succeed())
+		Expect(m.configureCustomScripts(conf, output)).To(Succeed())
 
 		contents, err := fs.ReadFile(catalystScriptPath)
 		Expect(err).NotTo(HaveOccurred())
@@ -159,7 +161,7 @@ echo "Running 02-print.sh"
 		Expect(err).NotTo(HaveOccurred())
 		Expect(info.Mode()).To(Equal(os.FileMode(0o744)))
 
-		file := filepath.Join(outputDir.CatalystConfigDir(), "01-test.sh")
+		file := filepath.Join(output.CatalystConfigDir(), "01-test.sh")
 		contents, err = fs.ReadFile(file)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(contents)).To(Equal("./some-command"))
@@ -168,7 +170,7 @@ echo "Running 02-print.sh"
 		Expect(err).NotTo(HaveOccurred())
 		Expect(info.Mode()).To(Equal(os.FileMode(0o744)))
 
-		file = filepath.Join(outputDir.CatalystConfigDir(), "02-print.sh")
+		file = filepath.Join(output.CatalystConfigDir(), "02-print.sh")
 		contents, err = fs.ReadFile(file)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(contents)).To(Equal("echo xyz"))
@@ -177,7 +179,7 @@ echo "Running 02-print.sh"
 		Expect(err).NotTo(HaveOccurred())
 		Expect(info.Mode()).To(Equal(os.FileMode(0o744)))
 
-		file = filepath.Join(outputDir.CatalystConfigDir(), "foo")
+		file = filepath.Join(output.CatalystConfigDir(), "foo")
 		contents, err = fs.ReadFile(file)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(contents)).To(Equal("123"))

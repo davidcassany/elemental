@@ -90,7 +90,7 @@ func NewManager(sys *sys.System, helm helmConfigurator, opts ...Opts) *Manager {
 
 // ConfigureComponents configures the components defined in the provided configuration
 // and returns the resolved release manifest from said configuration.
-func (m *Manager) ConfigureComponents(ctx context.Context, conf *image.Configuration, output OutputDir) (rm *resolver.ResolvedManifest, err error) {
+func (m *Manager) ConfigureComponents(ctx context.Context, conf *image.Configuration, output Output) (rm *resolver.ResolvedManifest, err error) {
 	if m.rmResolver == nil {
 		defaultResolver, err := defaultManifestResolver(m.system.FS(), output, m.local)
 		if err != nil {
@@ -135,7 +135,7 @@ func (m *Manager) ConfigureComponents(ctx context.Context, conf *image.Configura
 	return rm, nil
 }
 
-func defaultManifestResolver(fs vfs.FS, out OutputDir, local bool) (res *resolver.Resolver, err error) {
+func defaultManifestResolver(fs vfs.FS, out Output, local bool) (res *resolver.Resolver, err error) {
 	const (
 		globPattern = "release_manifest*.yaml"
 	)

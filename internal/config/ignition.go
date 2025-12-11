@@ -67,7 +67,7 @@ var (
 // * Predefined Butane configuration
 // * Kubernetes configuration and deployment files
 // * Systemd extensions
-func (m *Manager) configureIgnition(conf *image.Configuration, outputDir OutputDir, k8sScript, k8sConfScript string, ext []api.SystemdExtension) error {
+func (m *Manager) configureIgnition(conf *image.Configuration, output Output, k8sScript, k8sConfScript string, ext []api.SystemdExtension) error {
 	if len(conf.ButaneConfig) == 0 &&
 		k8sScript == "" &&
 		k8sConfScript == "" &&
@@ -141,7 +141,7 @@ func (m *Manager) configureIgnition(conf *image.Configuration, outputDir OutputD
 		config.AddSystemdUnit(updateLinkerCacheUnitName, updateLinkerCacheUnit, true)
 	}
 
-	ignitionFile := filepath.Join(outputDir.FirstbootConfigDir(), image.IgnitionFilePath())
+	ignitionFile := filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath())
 	return butane.WriteIgnitionFile(m.system, config, ignitionFile)
 }
 

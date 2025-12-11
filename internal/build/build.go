@@ -38,7 +38,7 @@ import (
 )
 
 type configManager interface {
-	ConfigureComponents(ctx context.Context, conf *image.Configuration, output config.OutputDir) (*resolver.ResolvedManifest, error)
+	ConfigureComponents(ctx context.Context, conf *image.Configuration, output config.Output) (*resolver.ResolvedManifest, error)
 }
 
 type Builder struct {
@@ -47,12 +47,12 @@ type Builder struct {
 	Local         bool
 }
 
-func (b *Builder) Run(ctx context.Context, d *image.Definition, outputDir config.OutputDir) error {
+func (b *Builder) Run(ctx context.Context, d *image.Definition, output config.Output) error {
 	logger := b.System.Logger()
 	runner := b.System.Runner()
 
 	logger.Info("Configuring image components")
-	rm, err := b.ConfigManager.ConfigureComponents(ctx, d.Configuration, outputDir)
+	rm, err := b.ConfigManager.ConfigureComponents(ctx, d.Configuration, output)
 	if err != nil {
 		logger.Error("Configuring image components")
 		return err
@@ -76,7 +76,7 @@ func (b *Builder) Run(ctx context.Context, d *image.Definition, outputDir config
 		}
 	}()
 
-	err = vfs.MkdirAll(b.System.FS(), outputDir.OverlaysDir(), vfs.DirPerm)
+	err = vfs.MkdirAll(b.System.FS(), output.OverlaysDir(), vfs.DirPerm)
 	if err != nil {
 		logger.Error("Failed creating overlay dir")
 		return err
@@ -88,7 +88,7 @@ func (b *Builder) Run(ctx context.Context, d *image.Definition, outputDir config
 		device,
 		rm.CorePlatform.Components.OperatingSystem.Image.Base,
 		&d.Configuration.Installation,
-		outputDir,
+		output,
 	)
 	if err != nil {
 		logger.Error("Preparing installation setup failed")
@@ -127,15 +127,15 @@ func newDeployment(
 	system *sys.System,
 	installationDevice, osImage string,
 	installation *imginstall.Installation,
-	outputDir config.OutputDir,
+	output config.Output,
 	customPartitions ...*deployment.Partition,
 ) (*deployment.Deployment, error) {
 	deploymentOpts := []deployment.Opt{
 		deployment.WithPartitions(1, customPartitions...),
 	}
 
-	if ok, _ := vfs.Exists(system.FS(), outputDir.FirstbootConfigDir()); ok {
-		configSize, err := vfs.DirSizeMB(system.FS(), outputDir.FirstbootConfigDir())
+	if ok, _ := vfs.Exists(system.FS(), output.FirstbootConfigDir()); ok {
+		configSize, err := vfs.DirSizeMB(system.FS(), output.FirstbootConfigDir())
 		if err != nil {
 			return nil, fmt.Errorf("computing configuration partition size: %w", err)
 		}
@@ -161,7 +161,7 @@ func newDeployment(
 	}
 	d.SourceOS = osSource
 
-	overlaysURI := fmt.Sprintf("%s://%s", deployment.Dir, outputDir.OverlaysDir())
+	overlaysURI := fmt.Sprintf("%s://%s", deployment.Dir, output.OverlaysDir())
 	overlaySource, err := deployment.NewSrcFromURI(overlaysURI)
 	if err != nil {
 		return nil, fmt.Errorf("parsing overlay source URI %q: %w", overlaysURI, err)

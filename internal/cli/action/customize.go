@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -50,37 +51,37 @@ func Customize(ctx *cli.Context) error {
 
 	logger.Info("Customizing image started")
 
-	tmpDir, err := vfs.TempDir(fs, "", "customize-")
+	imagePath, configPath := resolveOutputPaths(args)
+
+	output, err := config.NewOutput(fs, "", configPath)
 	if err != nil {
-		logger.Error("Creating temporary working directory failed")
+		logger.Error("Creating working directory failed")
 		return err
 	}
 
 	defer func() {
-		logger.Debug("Cleaning up temporary working directory %s", tmpDir)
-		rmErr := fs.RemoveAll(tmpDir)
-		if rmErr != nil {
-			logger.Error("Cleaning up temporary working directory '%s' failed: %v", tmpDir, rmErr)
+		logger.Debug("Cleaning up working directory")
+		if rmErr := output.Cleanup(fs); rmErr != nil {
+			logger.Error("Cleaning up working directory failed: %v", rmErr)
 		}
 	}()
 
-	def, err := digestCustomizeDefinition(fs, args)
+	def, err := digestCustomizeDefinition(fs, args, imagePath)
 	if err != nil {
 		logger.Error("Digesting image definition from customize flags failed")
 		return err
 	}
 
-	outDir := config.OutputDir(tmpDir)
 	ctxCancel, cancelFunc := signal.NotifyContext(ctx.Context, syscall.SIGTERM, syscall.SIGINT)
 	defer cancelFunc()
 
-	customizeRunner, err := setupCustomizeRunner(ctxCancel, system, args, outDir)
+	customizeRunner, err := setupCustomizeRunner(ctxCancel, system, args, output)
 	if err != nil {
 		logger.Error("Setting up customization runner failed")
 		return err
 	}
 
-	if err = customizeRunner.Run(ctxCancel, def, outDir, args.Local); err != nil {
+	if err = customizeRunner.Run(ctxCancel, def, output, args.Local); err != nil {
 		logger.Error("Customizing installer media failed")
 		return err
 	}
@@ -88,25 +89,45 @@ func Customize(ctx *cli.Context) error {
 	return nil
 }
 
+func resolveOutputPaths(args *cmd.CustomizeFlags) (imagePath, configPath string) {
+	imagePath = args.OutputPath
+	if imagePath == "" {
+		timestamp := time.Now().UTC().Format("2006-01-02T15-04-05")
+		imageName := fmt.Sprintf("image-%s.%s", timestamp, args.MediaType)
+
+		imagePath = filepath.Join(args.ConfigDir, imageName)
+	}
+
+	if args.Mode == "split" {
+		outputDir := filepath.Dir(imagePath)
+		filename := filepath.Base(imagePath)
+		baseName := strings.TrimSuffix(filename, filepath.Ext(filename))
+
+		configPath = filepath.Join(outputDir, baseName+"-config")
+	}
+
+	return imagePath, configPath
+}
+
 func setupCustomizeRunner(
 	ctx context.Context,
 	s *sys.System,
 	args *cmd.CustomizeFlags,
-	outDir config.OutputDir,
-) (r *customize.Runner, err error) {
-	extr, err := setupFileExtractor(ctx, s, outDir)
+	output config.Output,
+) (*customize.Runner, error) {
+	extr, err := setupFileExtractor(ctx, s, output)
 	if err != nil {
 		return nil, fmt.Errorf("setting up file extractor: %w", err)
 	}
 
 	return &customize.Runner{
 		System:        s,
-		ConfigManager: setupConfigManager(s, args.ConfigDir, outDir, args.Local),
+		ConfigManager: setupConfigManager(s, args.ConfigDir, output, args.Local),
 		FileExtractor: extr,
 	}, nil
 }
 
-func setupConfigManager(s *sys.System, configDir string, outDir config.OutputDir, local bool) *config.Manager {
+func setupConfigManager(s *sys.System, configDir string, output config.Output, local bool) *config.Manager {
 	valuesResolver := &helm.ValuesResolver{
 		ValuesDir: config.Dir(configDir).HelmValuesDir(),
 		FS:        s.FS(),
@@ -114,12 +135,12 @@ func setupConfigManager(s *sys.System, configDir string, outDir config.OutputDir
 
 	return config.NewManager(
 		s,
-		config.NewHelm(s.FS(), valuesResolver, s.Logger(), outDir.OverlaysDir()),
+		config.NewHelm(s.FS(), valuesResolver, s.Logger(), output.OverlaysDir()),
 		config.WithDownloadFunc(http.DownloadFile),
 		config.WithLocal(local),
 	)
 }
-func setupFileExtractor(ctx context.Context, s *sys.System, outDir config.OutputDir) (extr *extractor.OCIFileExtractor, err error) {
+func setupFileExtractor(ctx context.Context, s *sys.System, outDir config.Output) (extr *extractor.OCIFileExtractor, err error) {
 	const isoSearchGlob = "/iso/uc-base-kernel-default-iso*.iso"
 
 	if err := vfs.MkdirAll(s.FS(), outDir.ISOStoreDir(), vfs.DirPerm); err != nil {
@@ -134,13 +155,7 @@ func setupFileExtractor(ctx context.Context, s *sys.System, outDir config.Output
 	)
 }
 
-func digestCustomizeDefinition(f vfs.FS, args *cmd.CustomizeFlags) (def *image.Definition, err error) {
-	outputPath := args.OutputPath
-	if outputPath == "" {
-		imageName := fmt.Sprintf("image-%s.%s", time.Now().UTC().Format("2006-01-02T15-04-05"), args.MediaType)
-		outputPath = filepath.Join(args.ConfigDir, imageName)
-	}
-
+func digestCustomizeDefinition(f vfs.FS, args *cmd.CustomizeFlags, imagePath string) (*image.Definition, error) {
 	p, err := platform.Parse(args.Platform)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing platform %s", args.Platform)
@@ -155,7 +170,7 @@ func digestCustomizeDefinition(f vfs.FS, args *cmd.CustomizeFlags) (def *image.D
 		Image: image.Image{
 			ImageType:       args.MediaType,
 			Platform:        p,
-			OutputImageName: outputPath,
+			OutputImageName: imagePath,
 		},
 		Configuration: conf,
 	}, nil

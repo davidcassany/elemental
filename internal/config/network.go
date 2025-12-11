@@ -29,13 +29,13 @@ func needsNetworkSetup(conf *image.Configuration) bool {
 	return conf.Network.CustomScript != "" || conf.Network.ConfigDir != ""
 }
 
-func (m *Manager) configureNetworkOnFirstboot(conf *image.Configuration, outputDir OutputDir) error {
+func (m *Manager) configureNetworkOnFirstboot(conf *image.Configuration, output Output) error {
 	if !needsNetworkSetup(conf) {
 		m.system.Logger().Info("Network configuration not provided, skipping.")
 		return nil
 	}
 
-	netDir := filepath.Join(outputDir.CatalystConfigDir(), "network")
+	netDir := filepath.Join(output.CatalystConfigDir(), "network")
 	if err := vfs.MkdirAll(m.system.FS(), netDir, vfs.DirPerm); err != nil {
 		return fmt.Errorf("creating network directory in overlays: %w", err)
 	}

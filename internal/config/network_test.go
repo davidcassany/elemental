@@ -31,7 +31,9 @@ import (
 )
 
 var _ = Describe("Network", func() {
-	const outputDir OutputDir = "/_out"
+	var output = Output{
+		RootPath: "/_out",
+	}
 
 	var m *Manager
 	var system *sys.System
@@ -65,7 +67,7 @@ var _ = Describe("Network", func() {
 	})
 
 	It("Skips configuration", func() {
-		err := m.configureNetworkOnFirstboot(&image.Configuration{}, "")
+		err := m.configureNetworkOnFirstboot(&image.Configuration{}, Output{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -76,7 +78,7 @@ var _ = Describe("Network", func() {
 			},
 		}
 
-		err := m.configureNetworkOnFirstboot(conf, outputDir)
+		err := m.configureNetworkOnFirstboot(conf, output)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("copying custom network script: stat"))
 		Expect(err.Error()).To(ContainSubstring("/etc/custom.sh: no such file or directory"))
@@ -89,11 +91,11 @@ var _ = Describe("Network", func() {
 			},
 		}
 
-		err := m.configureNetworkOnFirstboot(conf, outputDir)
+		err := m.configureNetworkOnFirstboot(conf, output)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Verify script contents
-		netDir := filepath.Join(outputDir.CatalystConfigDir(), "network")
+		netDir := filepath.Join(output.CatalystConfigDir(), "network")
 		scriptPath := filepath.Join(netDir, "configure-network.sh")
 		contents, err := fs.ReadFile(scriptPath)
 		Expect(err).NotTo(HaveOccurred())
@@ -110,13 +112,13 @@ var _ = Describe("Network", func() {
 			},
 		}
 
-		err := m.configureNetworkOnFirstboot(conf, outputDir)
+		err := m.configureNetworkOnFirstboot(conf, output)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("copying network config: stat"))
 		Expect(err.Error()).To(ContainSubstring("/etc/missing: no such file or directory"))
 
 		conf.Network.ConfigDir = "/etc/network"
-		err = m.configureNetworkOnFirstboot(conf, outputDir)
+		err = m.configureNetworkOnFirstboot(conf, output)
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError("copying network config: directories under /etc/network are not supported"))
 	})
@@ -128,10 +130,10 @@ var _ = Describe("Network", func() {
 			},
 		}
 
-		err := m.configureNetworkOnFirstboot(conf, outputDir)
+		err := m.configureNetworkOnFirstboot(conf, output)
 		Expect(err).ToNot(HaveOccurred())
 
-		netDir := filepath.Join(outputDir.CatalystConfigDir(), "network")
+		netDir := filepath.Join(output.CatalystConfigDir(), "network")
 
 		libvirt := filepath.Join(netDir, "libvirt.yaml")
 		contents, err := fs.ReadFile(libvirt)

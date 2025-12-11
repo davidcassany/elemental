@@ -58,7 +58,7 @@ func (m *Manager) configureKubernetes(
 	ctx context.Context,
 	conf *image.Configuration,
 	manifest *resolver.ResolvedManifest,
-	outputDir OutputDir,
+	output Output,
 ) (k8sResourceScript, k8sConfScript string, err error) {
 	if !isKubernetesEnabled(conf) {
 		m.system.Logger().Info("Kubernetes is not enabled, skipping configuration")
@@ -80,20 +80,20 @@ func (m *Manager) configureKubernetes(
 	if needsManifestsSetup(conf) {
 		m.system.Logger().Info("Configuring Kubernetes manifests")
 
-		runtimeManifestsDir, err = m.setupManifests(ctx, &conf.Kubernetes, outputDir)
+		runtimeManifestsDir, err = m.setupManifests(ctx, &conf.Kubernetes, output)
 		if err != nil {
 			return "", "", fmt.Errorf("configuring kubernetes manifests: %w", err)
 		}
 	}
 
 	if len(runtimeHelmCharts) > 0 || runtimeManifestsDir != "" {
-		k8sResourceScript, err = writeK8sResDeployScript(m.system.FS(), outputDir, runtimeManifestsDir, runtimeHelmCharts)
+		k8sResourceScript, err = writeK8sResDeployScript(m.system.FS(), output, runtimeManifestsDir, runtimeHelmCharts)
 		if err != nil {
 			return "", "", fmt.Errorf("writing kubernetes resource deployment script: %w", err)
 		}
 	}
 
-	k8sConfScript, err = writeK8sConfigDeployScript(m.system.FS(), outputDir, conf.Kubernetes)
+	k8sConfScript, err = writeK8sConfigDeployScript(m.system.FS(), output, conf.Kubernetes)
 	if err != nil {
 		return "", "", fmt.Errorf("writing kubernetes resource deployment script: %w", err)
 	}
@@ -101,11 +101,11 @@ func (m *Manager) configureKubernetes(
 	return k8sResourceScript, k8sConfScript, nil
 }
 
-func (m *Manager) setupManifests(ctx context.Context, k *kubernetes.Kubernetes, outputDir OutputDir) (string, error) {
+func (m *Manager) setupManifests(ctx context.Context, k *kubernetes.Kubernetes, output Output) (string, error) {
 	fs := m.system.FS()
 
 	relativeManifestsPath := filepath.Join("/", image.KubernetesManifestsPath())
-	manifestsDir := filepath.Join(outputDir.OverlaysDir(), relativeManifestsPath)
+	manifestsDir := filepath.Join(output.OverlaysDir(), relativeManifestsPath)
 
 	if err := vfs.MkdirAll(fs, manifestsDir, vfs.DirPerm); err != nil {
 		return "", fmt.Errorf("setting up manifests directory '%s': %w", manifestsDir, err)
@@ -129,7 +129,7 @@ func (m *Manager) setupManifests(ctx context.Context, k *kubernetes.Kubernetes, 
 	return relativeManifestsPath, nil
 }
 
-func writeK8sResDeployScript(fs vfs.FS, outputDir OutputDir, runtimeManifestsDir string, runtimeHelmCharts []string) (string, error) {
+func writeK8sResDeployScript(fs vfs.FS, output Output, runtimeManifestsDir string, runtimeHelmCharts []string) (string, error) {
 
 	values := struct {
 		HelmCharts   []string
@@ -145,7 +145,7 @@ func writeK8sResDeployScript(fs vfs.FS, outputDir OutputDir, runtimeManifestsDir
 	}
 
 	relativeK8sPath := filepath.Join("/", image.KubernetesPath())
-	destDir := filepath.Join(outputDir.OverlaysDir(), relativeK8sPath)
+	destDir := filepath.Join(output.OverlaysDir(), relativeK8sPath)
 
 	if err = vfs.MkdirAll(fs, destDir, vfs.DirPerm); err != nil {
 		return "", fmt.Errorf("creating destination directory: %w", err)
@@ -161,7 +161,7 @@ func writeK8sResDeployScript(fs vfs.FS, outputDir OutputDir, runtimeManifestsDir
 	return relativePath, nil
 }
 
-func writeK8sConfigDeployScript(fs vfs.FS, outputDir OutputDir, k kubernetes.Kubernetes) (string, error) {
+func writeK8sConfigDeployScript(fs vfs.FS, output Output, k kubernetes.Kubernetes) (string, error) {
 	relativeK8sPath := filepath.Join("/", image.KubernetesPath())
 
 	var (
@@ -201,7 +201,7 @@ func writeK8sConfigDeployScript(fs vfs.FS, outputDir OutputDir, k kubernetes.Kub
 		return "", fmt.Errorf("parsing deployment template: %w", err)
 	}
 
-	destDir := filepath.Join(outputDir.OverlaysDir(), relativeK8sPath)
+	destDir := filepath.Join(output.OverlaysDir(), relativeK8sPath)
 
 	if err = vfs.MkdirAll(fs, destDir, vfs.DirPerm); err != nil {
 		return "", fmt.Errorf("creating destination directory: %w", err)

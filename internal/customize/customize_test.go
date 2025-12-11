@@ -44,9 +44,12 @@ func TestCustomizeSuite(t *testing.T) {
 }
 
 var _ = Describe("Customize runner", Label("customize"), func() {
+	output := config.Output{
+		RootPath: "/_out",
+	}
+
 	const (
-		outputDir      config.OutputDir = "/_out"
-		installerDescr string           = `
+		installerDescr string = `
 disks:
   - partitions:
     - label: EFI
@@ -111,12 +114,12 @@ disks:
 			}
 			return sysRunner.ReturnValue, sysRunner.ReturnError
 		}
-		Expect(vfs.MkdirAll(fs, string(outputDir), vfs.DirPerm)).To(Succeed())
+		Expect(vfs.MkdirAll(fs, output.RootPath, vfs.DirPerm)).To(Succeed())
 
 		customizeRunner = &customize.Runner{
 			System: s,
 			ConfigManager: &configManagerMock{
-				configFucn: func(ctx context.Context, conf *image.Configuration, output config.OutputDir) (*resolver.ResolvedManifest, error) {
+				configFunc: func(ctx context.Context, conf *image.Configuration, output config.Output) (*resolver.ResolvedManifest, error) {
 					return &resolver.ResolvedManifest{
 						CorePlatform: &core.ReleaseManifest{
 							Components: core.Components{
@@ -142,7 +145,7 @@ disks:
 			},
 		}
 		sideEffects["xorriso"] = func(args ...string) ([]byte, error) {
-			file := filepath.Join(string(outputDir), "iso-desc-install", "install.yaml")
+			file := filepath.Join(output.RootPath, "iso-desc-install", "install.yaml")
 			Expect(fs.WriteFile(file, []byte(installerDescr), vfs.FilePerm)).To(Succeed())
 			return []byte{}, nil
 		}
@@ -184,9 +187,9 @@ disks:
 		}
 
 		// Simulate first boot configuration
-		Expect(vfs.MkdirAll(fs, outputDir.FirstbootConfigDir(), vfs.DirPerm)).To(Succeed())
+		Expect(vfs.MkdirAll(fs, output.FirstbootConfigDir(), vfs.DirPerm)).To(Succeed())
 
-		err := customizeRunner.Run(context.Background(), def, outputDir, true)
+		err := customizeRunner.Run(context.Background(), def, output, true)
 		Expect(err).ToNot(HaveOccurred())
 		defaultCustomizeDeploymentValidation(customizeDeployment)
 
@@ -260,7 +263,7 @@ disks:
 			},
 		}
 
-		err := customizeRunner.Run(context.Background(), def, outputDir, true)
+		err := customizeRunner.Run(context.Background(), def, output, true)
 		Expect(err).ToNot(HaveOccurred())
 		defaultCustomizeDeploymentValidation(customizeDeployment)
 		Expect(customizeDeployment.Disks[0].Device).To(BeEmpty())
@@ -269,12 +272,12 @@ disks:
 
 	It("fails to configure components", func() {
 		customizeRunner.ConfigManager = &configManagerMock{
-			configFucn: func(ctx context.Context, conf *image.Configuration, output config.OutputDir) (*resolver.ResolvedManifest, error) {
+			configFunc: func(ctx context.Context, conf *image.Configuration, output config.Output) (*resolver.ResolvedManifest, error) {
 				return nil, fmt.Errorf("missing manifest")
 			},
 		}
 
-		err := customizeRunner.Run(context.Background(), &image.Definition{}, outputDir, true)
+		err := customizeRunner.Run(context.Background(), &image.Definition{}, output, true)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(Equal("missing manifest"))
 	})
@@ -286,7 +289,7 @@ disks:
 			},
 		}
 
-		err := customizeRunner.Run(context.Background(), &image.Definition{}, outputDir, true)
+		err := customizeRunner.Run(context.Background(), &image.Definition{}, output, true)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(Equal("extract error"))
 	})
@@ -302,7 +305,7 @@ disks:
 			},
 		}
 
-		err := customizeRunner.Run(context.Background(), &image.Definition{}, outputDir, true)
+		err := customizeRunner.Run(context.Background(), &image.Definition{}, output, true)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("'missing.iso': xorriso command failed"))
 	})
@@ -314,7 +317,7 @@ disks:
 			},
 		}
 
-		err := customizeRunner.Run(context.Background(), def, outputDir, true)
+		err := customizeRunner.Run(context.Background(), def, output, true)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(Equal("unsupported media type foo: unsupported operation"))
 	})
@@ -329,7 +332,7 @@ disks:
 			},
 		}
 
-		err := customizeRunner.Run(context.Background(), def, outputDir, true)
+		err := customizeRunner.Run(context.Background(), def, output, true)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(Equal("missing device configuration for ISO image type"))
 
@@ -355,7 +358,7 @@ disks:
 			},
 		}
 
-		err := customizeRunner.Run(context.Background(), def, outputDir, true)
+		err := customizeRunner.Run(context.Background(), def, output, true)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(Equal("customization error"))
 	})
@@ -374,7 +377,7 @@ disks:
 			},
 		}
 
-		err := customizeRunner.Run(context.Background(), def, outputDir, true)
+		err := customizeRunner.Run(context.Background(), def, output, true)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(Equal("invalid disk size definition '35Invalid'"))
 
@@ -382,12 +385,12 @@ disks:
 })
 
 type configManagerMock struct {
-	configFucn func(ctx context.Context, conf *image.Configuration, output config.OutputDir) (*resolver.ResolvedManifest, error)
+	configFunc func(ctx context.Context, conf *image.Configuration, output config.Output) (*resolver.ResolvedManifest, error)
 }
 
-func (c *configManagerMock) ConfigureComponents(ctx context.Context, conf *image.Configuration, output config.OutputDir) (*resolver.ResolvedManifest, error) {
-	if c.configFucn != nil {
-		return c.configFucn(ctx, conf, output)
+func (c *configManagerMock) ConfigureComponents(ctx context.Context, conf *image.Configuration, output config.Output) (*resolver.ResolvedManifest, error) {
+	if c.configFunc != nil {
+		return c.configFunc(ctx, conf, output)
 	}
 
 	panic("not implemented")

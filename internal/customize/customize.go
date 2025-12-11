@@ -45,7 +45,7 @@ const (
 var autoInstallerScriptTpl string
 
 type configManager interface {
-	ConfigureComponents(ctx context.Context, conf *image.Configuration, output config.OutputDir) (*resolver.ResolvedManifest, error)
+	ConfigureComponents(ctx context.Context, conf *image.Configuration, output config.Output) (*resolver.ResolvedManifest, error)
 }
 
 type ociFileExtractor interface {
@@ -63,11 +63,11 @@ type Runner struct {
 	Media         media
 }
 
-func (r *Runner) Run(ctx context.Context, def *image.Definition, outputDir config.OutputDir, local bool) (err error) {
+func (r *Runner) Run(ctx context.Context, def *image.Definition, output config.Output, local bool) (err error) {
 	logger := r.System.Logger()
 
 	logger.Info("Configuring image components")
-	rm, err := r.ConfigManager.ConfigureComponents(ctx, def.Configuration, outputDir)
+	rm, err := r.ConfigManager.ConfigureComponents(ctx, def.Configuration, output)
 	if err != nil {
 		logger.Error("Configuring image components failed")
 		return err
@@ -82,7 +82,7 @@ func (r *Runner) Run(ctx context.Context, def *image.Definition, outputDir confi
 	}
 
 	logger.Info("Loading ISO install description")
-	installerDeployment, err := loadISOInstallDesc(r.System, iso, string(outputDir))
+	installerDeployment, err := loadISOInstallDesc(r.System, iso, output.RootPath)
 	if err != nil {
 		logger.Error("Loading ISO install description failed")
 		return err
@@ -100,7 +100,7 @@ func (r *Runner) Run(ctx context.Context, def *image.Definition, outputDir confi
 		mediaType,
 		&def.Configuration.Installation,
 		installerDeployment,
-		outputDir,
+		output,
 	)
 
 	if err != nil {
@@ -114,7 +114,7 @@ func (r *Runner) Run(ctx context.Context, def *image.Definition, outputDir confi
 		if diskSizeStr == "" {
 			diskSizeStr = "12G"
 		}
-		if mediaType == installer.Disk && !diskSizeStr.IsValid() {
+		if !diskSizeStr.IsValid() {
 			return fmt.Errorf("invalid disk size definition '%s'", diskSizeStr)
 		}
 		diskMiB, err := diskSizeStr.ToMiB()
@@ -168,7 +168,7 @@ func parseDeployment(
 	mediaType installer.MediaType,
 	install *install.Installation,
 	installerDep *deployment.Deployment,
-	output config.OutputDir,
+	output config.Output,
 	customPartitions ...*deployment.Partition,
 ) (dep *deployment.Deployment, err error) {
 	customizeDisk := &deployment.Disk{}
@@ -228,7 +228,7 @@ func parseDeployment(
 	// Make sure that we define a valid installer config script if such was not defined
 	// during the build process of the ISO that is currently being customized.
 	if installerDep.Installer.CfgScript == "" {
-		autoInst, err := writeAutoInstaller(fs, string(output), mediaType)
+		autoInst, err := writeAutoInstaller(fs, output.RootPath, mediaType)
 		if err != nil {
 			return nil, fmt.Errorf("writing default '%s' installer script: %w", autoInstallerScriptName, err)
 		}

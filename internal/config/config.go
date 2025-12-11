@@ -78,35 +78,68 @@ func (dir Dir) CustomDir() string {
 	return filepath.Join(string(dir), "custom")
 }
 
-type OutputDir string
+type Output struct {
+	RootPath string
 
-func (dir OutputDir) OverlaysDir() string {
-	return filepath.Join(string(dir), "overlays")
+	// ConfigPath is only populated if configuration (incl. network, catalyst and custom scripts)
+	// is requested separately. Note that extensions are *always* part of the RootPath instead.
+	ConfigPath string
 }
 
-func (dir OutputDir) FirstbootConfigDir() string {
-	return filepath.Join(dir.OverlaysDir(), deployment.ConfigMnt)
+func NewOutput(fs vfs.FS, rootPath, configPath string) (Output, error) {
+	if rootPath == "" {
+		dir, err := vfs.TempDir(fs, "", "work-")
+		if err != nil {
+			return Output{}, err
+		}
+
+		rootPath = dir
+	} else if err := vfs.MkdirAll(fs, rootPath, vfs.DirPerm); err != nil {
+		return Output{}, err
+	}
+
+	if configPath != "" {
+		if err := vfs.MkdirAll(fs, configPath, vfs.DirPerm); err != nil {
+			return Output{}, err
+		}
+	}
+
+	return Output{
+		RootPath:   rootPath,
+		ConfigPath: configPath,
+	}, nil
 }
 
-func (dir OutputDir) CatalystConfigDir() string {
-	return filepath.Join(dir.OverlaysDir(), deployment.ConfigMnt, "catalyst")
+func (o Output) OverlaysDir() string {
+	return filepath.Join(o.RootPath, "overlays")
 }
 
-func (dir OutputDir) ExtractedFilesStoreDir() string {
-	return filepath.Join(string(dir), "store")
+func (o Output) FirstbootConfigDir() string {
+	if o.ConfigPath != "" {
+		return o.ConfigPath
+	}
+
+	return filepath.Join(o.OverlaysDir(), deployment.ConfigMnt)
 }
 
-func (dir OutputDir) ReleaseManifestsStoreDir() string {
-	return filepath.Join(dir.ExtractedFilesStoreDir(), "release-manifests")
+func (o Output) CatalystConfigDir() string {
+	return filepath.Join(o.FirstbootConfigDir(), "catalyst")
 }
 
-func (dir OutputDir) ISOStoreDir() string {
-	return filepath.Join(dir.ExtractedFilesStoreDir(), "ISOs")
+func (o Output) ExtractedFilesStoreDir() string {
+	return filepath.Join(o.RootPath, "store")
 }
 
-func CreateOutputDir(fs vfs.FS, dst, name string, perm fs.FileMode) (dir OutputDir, err error) {
-	outputDirPath := filepath.Join(dst, name)
-	return OutputDir(outputDirPath), vfs.MkdirAll(fs, outputDirPath, perm)
+func (o Output) ReleaseManifestsStoreDir() string {
+	return filepath.Join(o.ExtractedFilesStoreDir(), "release-manifests")
+}
+
+func (o Output) ISOStoreDir() string {
+	return filepath.Join(o.ExtractedFilesStoreDir(), "ISOs")
+}
+
+func (o Output) Cleanup(fs vfs.FS) error {
+	return fs.RemoveAll(o.RootPath)
 }
 
 func Parse(f vfs.FS, configDir Dir) (conf *image.Configuration, err error) {

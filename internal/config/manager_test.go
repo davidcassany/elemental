@@ -49,7 +49,9 @@ func (r *resolverMock) Resolve(uri string) (*resolver.ResolvedManifest, error) {
 }
 
 var _ = Describe("Manager", func() {
-	var outputDir OutputDir = "/_out"
+	var output = Output{
+		RootPath: "/_out",
+	}
 	var configDir Dir = "/config"
 	var fs vfs.FS
 	var cleanup func()
@@ -151,7 +153,7 @@ passwd:
 		m := NewManager(
 			system,
 			&helmConfiguratorMock{configureFunc: func(c *image.Configuration, rm *resolver.ResolvedManifest) ([]string, error) {
-				helmPath := filepath.Join(outputDir.OverlaysDir(), image.HelmPath())
+				helmPath := filepath.Join(output.OverlaysDir(), image.HelmPath())
 				if err := vfs.MkdirAll(fs, helmPath, vfs.DirPerm); err != nil {
 					return nil, err
 				}
@@ -179,23 +181,23 @@ passwd:
 			}),
 		)
 
-		r, err := m.ConfigureComponents(context.Background(), conf, outputDir)
+		r, err := m.ConfigureComponents(context.Background(), conf, output)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(r).ToNot(BeNil())
 		Expect(r).To(Equal(activeReleaseManifest))
 
-		_, err = fs.Stat(filepath.Join(outputDir.OverlaysDir(), image.HelmPath(), "bar"))
+		_, err = fs.Stat(filepath.Join(output.OverlaysDir(), image.HelmPath(), "bar"))
 		Expect(err).ToNot(HaveOccurred())
-		_, err = fs.Stat(filepath.Join(outputDir.OverlaysDir(), image.KubernetesManifestsPath(), "remote-manifest1.yaml"))
+		_, err = fs.Stat(filepath.Join(output.OverlaysDir(), image.KubernetesManifestsPath(), "remote-manifest1.yaml"))
 		Expect(err).ToNot(HaveOccurred())
-		_, err = fs.Stat(filepath.Join(outputDir.OverlaysDir(), image.KubernetesManifestsPath(), "local-manifest1.yaml"))
+		_, err = fs.Stat(filepath.Join(output.OverlaysDir(), image.KubernetesManifestsPath(), "local-manifest1.yaml"))
 		Expect(err).ToNot(HaveOccurred())
-		_, err = fs.Stat(filepath.Join(outputDir.CatalystConfigDir(), "network", "nmstate1.yaml"))
+		_, err = fs.Stat(filepath.Join(output.CatalystConfigDir(), "network", "nmstate1.yaml"))
 		Expect(err).ToNot(HaveOccurred())
-		_, err = fs.Stat(filepath.Join(outputDir.OverlaysDir(), image.ExtensionsPath(), "remote-foo-image"))
+		_, err = fs.Stat(filepath.Join(output.OverlaysDir(), image.ExtensionsPath(), "remote-foo-image"))
 		Expect(err).ToNot(HaveOccurred())
-		_, err = fs.Stat(filepath.Join(outputDir.FirstbootConfigDir(), image.IgnitionFilePath()))
+		_, err = fs.Stat(filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath()))
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -211,7 +213,7 @@ passwd:
 			},
 		}
 
-		r, err := m.ConfigureComponents(context.Background(), conf, outputDir)
+		r, err := m.ConfigureComponents(context.Background(), conf, output)
 		Expect(r).To(BeNil())
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("/_out/store/release-manifests: no such file or directory"))
@@ -230,7 +232,7 @@ passwd:
 			},
 		}
 
-		r, err = m.ConfigureComponents(context.Background(), conf, outputDir)
+		r, err = m.ConfigureComponents(context.Background(), conf, output)
 		Expect(r).To(BeNil())
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError("resolving release manifest at uri 'missing': unable to resolve manifest"))
@@ -248,7 +250,7 @@ passwd:
 			},
 		}
 
-		r, err := m.ConfigureComponents(context.Background(), conf, outputDir)
+		r, err := m.ConfigureComponents(context.Background(), conf, output)
 		Expect(r).To(BeNil())
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("/missing/configure-network.sh: no such file or directory"))
@@ -275,7 +277,7 @@ passwd:
 			},
 		}
 
-		r, err := m.ConfigureComponents(context.Background(), conf, outputDir)
+		r, err := m.ConfigureComponents(context.Background(), conf, output)
 		Expect(r).To(BeNil())
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError("configuring kubernetes: configuring helm charts: unable to configure helm charts"))
@@ -287,7 +289,7 @@ passwd:
 			},
 		}
 
-		r, err = m.ConfigureComponents(context.Background(), conf, outputDir)
+		r, err = m.ConfigureComponents(context.Background(), conf, output)
 		Expect(r).To(BeNil())
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("/missing/foo.yaml: no such file or directory"))
@@ -307,7 +309,7 @@ passwd:
 			},
 		}
 
-		r, err = m.ConfigureComponents(context.Background(), conf, outputDir)
+		r, err = m.ConfigureComponents(context.Background(), conf, output)
 		Expect(r).To(BeNil())
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("downloading remote Kubernetes manifest 'https://foo.bar/foo.yaml': download unavailable"))
@@ -330,7 +332,7 @@ passwd:
 			ButaneConfig: butane,
 		}
 
-		r, err := m.ConfigureComponents(context.Background(), conf, outputDir)
+		r, err := m.ConfigureComponents(context.Background(), conf, output)
 		Expect(r).To(BeNil())
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("failed translating Butane config: error parsing variant; must be specified"))
@@ -367,7 +369,7 @@ passwd:
 			},
 		}
 
-		r, err := m.ConfigureComponents(context.Background(), conf, outputDir)
+		r, err := m.ConfigureComponents(context.Background(), conf, output)
 		Expect(r).To(BeNil())
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError("filtering enabled systemd extensions: requested systemd extension(s) not found: [\"missing\"]"))

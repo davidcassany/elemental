@@ -35,10 +35,10 @@ import (
 	"github.com/suse/elemental/v3/pkg/unpack"
 )
 
-func (m *Manager) downloadSystemExtensions(ctx context.Context, extensions []api.SystemdExtension, outputDir OutputDir) error {
+func (m *Manager) downloadSystemExtensions(ctx context.Context, extensions []api.SystemdExtension, output Output) error {
 	logger := m.system.Logger()
 	fs := m.system.FS()
-	extensionsDir := filepath.Join(outputDir.OverlaysDir(), image.ExtensionsPath())
+	extensionsDir := filepath.Join(output.OverlaysDir(), image.ExtensionsPath())
 
 	if err := vfs.MkdirAll(fs, extensionsDir, 0o700); err != nil {
 		return fmt.Errorf("creating extensions directory: %w", err)

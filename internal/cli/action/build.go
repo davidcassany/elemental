@@ -65,18 +65,18 @@ func Build(ctx *cli.Context) error {
 
 	logger.Info("Validated image configuration")
 
-	buildOutput := fmt.Sprintf("build-%s", time.Now().UTC().Format("2006-01-02T15-04-05"))
-	outDir, err := config.CreateOutputDir(system.FS(), args.BuildDir, buildOutput, 0700)
+	rootBuildPath := filepath.Join(args.BuildDir,
+		fmt.Sprintf("build-%s", time.Now().UTC().Format("2006-01-02T15-04-05")))
+	output, err := config.NewOutput(system.FS(), rootBuildPath, "")
 	if err != nil {
 		logger.Error("Creating build directory failed")
 		return err
 	}
 
 	defer func() {
-		logger.Debug("Cleaning up build-dir %s", outDir)
-		rmErr := system.FS().RemoveAll(string(outDir))
+		rmErr := output.Cleanup(system.FS())
 		if rmErr != nil {
-			logger.Error("Cleaning up build-dir '%s' failed: %v", outDir, rmErr)
+			logger.Error("Cleaning up build directory failed: %v", rmErr)
 		}
 	}()
 
@@ -87,7 +87,7 @@ func Build(ctx *cli.Context) error {
 
 	configManager := config.NewManager(
 		system,
-		config.NewHelm(system.FS(), valuesResolver, logger, outDir.OverlaysDir()),
+		config.NewHelm(system.FS(), valuesResolver, logger, output.OverlaysDir()),
 		config.WithDownloadFunc(http.DownloadFile),
 		config.WithLocal(args.Local),
 	)
@@ -99,7 +99,7 @@ func Build(ctx *cli.Context) error {
 	}
 
 	logger.Info("Starting build process for %s %s image", definition.Image.Platform.String(), definition.Image.ImageType)
-	if err = builder.Run(ctxCancel, definition, outDir); err != nil {
+	if err = builder.Run(ctxCancel, definition, output); err != nil {
 		logger.Error("Build process failed")
 		return err
 	}

@@ -28,6 +28,7 @@ import (
 type CustomizeFlags struct {
 	ConfigDir  string
 	OutputPath string
+	Mode       string
 	Platform   string
 	MediaType  string
 	Local      bool
@@ -60,6 +61,12 @@ func NewCustomizeCommand(appName string, action func(*cli.Context) error) *cli.C
 				Usage:       "Filepath for the output image",
 				Destination: &CustomizeArgs.OutputPath,
 				DefaultText: "image-<timestamp>.<image-type>",
+			},
+			&cli.StringFlag{
+				Name:        "mode",
+				Usage:       "Customization mode, 'embedded' or 'split'",
+				Destination: &CustomizeArgs.Mode,
+				Value:       "embedded",
 			},
 			&cli.StringFlag{
 				Name:        "platform",
