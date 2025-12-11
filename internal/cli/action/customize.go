@@ -57,7 +57,7 @@ func Customize(ctx *cli.Context) error {
 	}
 
 	defer func() {
-		logger.Debug("Cleaning up temporary working directory", tmpDir)
+		logger.Debug("Cleaning up temporary working directory %s", tmpDir)
 		rmErr := fs.RemoveAll(tmpDir)
 		if rmErr != nil {
 			logger.Error("Cleaning up temporary working directory '%s' failed: %v", tmpDir, rmErr)
