@@ -53,6 +53,7 @@ func NewCustomizeCommand(appName string, action func(*cli.Context) error) *cli.C
 				Name:        "config-dir",
 				Usage:       "Full path to the image configuration directory",
 				Destination: &CustomizeArgs.ConfigDir,
+				Value:       "/config",
 			},
 			&cli.StringFlag{
 				Name:        "output",
