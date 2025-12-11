@@ -17,7 +17,7 @@ As part of the command, users are expected to provide:
 1. **Specifications for the image** - these are defined as options to the command itself. Available specification options can be viewed by calling the command's help message: `elemental3 customize -h`.
 2. **Information about the desired state of the image** - this is done through the definition of a configuration directory that the user creates beforehand. For more information on the directory itself, refer to the [Configuration Directory Guide](configuration-directory.md).
 
-We recommend you familiarize yourself with both points before attempting to customize your first image. 
+Please familiarize yourself with both points before attempting to customize your first image.
 
 For further understanding of the customization process, you can also refer to the following sections:
 
@@ -132,20 +132,20 @@ The customized image can be booted as any other regular image. Below you can fin
 * ISO media:
 
    * Create an empty `disk.img` disk image that will be used as a storage device:
-     
+
      ```shell
      truncate -s 20G disk.img
      ```
 
    * Create a local copy of the EFI variable store:
-     
+
      > **NOTE:** This is needed in order to persist any new EFI entries included during the ISO installer boot.
      ```shell
      cp /usr/share/qemu/ovmf-x86_64-vars.bin .
      ```
 
    * Boot a VM using the previously created resources, namely the `customized.iso`, `disk.img` and local EFI store:
-   
+
       ```shell
       virt-install --name customized-iso \
                   --ram 16000 \
@@ -189,7 +189,7 @@ Additionally, the user wants to configure the image’s network and extend the e
 
 #### Configuration directory setup
 
-The user creates a [configuration directory](../examples/elemental/customize/linux-only/) that describes the desired configurations that needs to be applied over the desired `Core Platform` release.
+The user creates a [configuration directory](../examples/elemental/customize/linux-only/) that describes the desired configurations that need to be applied over the desired `Core Platform` release.
 
 The contents of this directory include:
 
@@ -201,7 +201,7 @@ The contents of this directory include:
 #### Producing the customized image
 
 1. Navigate to your configuration directory:
-   
+
    ```shell
    cd examples/elemental/customize/linux-only/
    ```
@@ -212,7 +212,7 @@ The contents of this directory include:
    ```shell
    podman run -it -v .:/config -v /run/podman/podman.sock:/var/run/docker.sock $ELEMENTAL_IMAGE customize --type raw --local
    ```
-   
+
 After execution, for a RAW disk type, your `examples/elemental/customize/linux-only` directory should look similar to:
 
 ```text
@@ -227,7 +227,7 @@ After execution, for a RAW disk type, your `examples/elemental/customize/linux-o
 
 #### Booting the image
 
-Following what is described in the "[Booting a customized image](#booting-a-customized-image)" section, we boot a virtual machine using Libvirt: 
+Following what is described in the "[Booting a customized image](#booting-a-customized-image)" section, you boot a virtual machine using Libvirt:
 
 ```shell
 virt-install --name linux-only-example \
@@ -247,7 +247,7 @@ virt-install --name linux-only-example \
 
 #### Environment overview
 
-Once the machine has successfully been booted with the customized image, you can verify the environment going through the following set of steps:
+Once the machine has successfully been booted with the customized image, you can verify the environment by going through the following set of steps:
 
 1. Verify that the expected operating system is running:
 
@@ -293,7 +293,7 @@ Furthermore, using this image, the user wants to setup a single-node Kubernetes 
 
 #### Configuration directory setup
 
-The user creates a [configuration directory](../examples/elemental/customize/single-node/) that describes the desired configurations that needs to be applied over the desired `Product` release.
+The user creates a [configuration directory](../examples/elemental/customize/single-node/) that describes the desired configurations that need to be applied over the desired `Product` release.
 
 The contents of this directory include:
 
@@ -311,7 +311,7 @@ The contents of this directory include:
 #### Producing the customized image
 
 1. Navigate to your configuration directory:
-   
+
    ```shell
    cd examples/elemental/customize/single-node/
    ```
@@ -322,7 +322,7 @@ The contents of this directory include:
    ```shell
    podman run -it -v .:/config -v /run/podman/podman.sock:/var/run/docker.sock $ELEMENTAL_IMAGE customize --type raw --local
    ```
-   
+
 After execution, for a RAW disk type, your `examples/elemental/customize/single-node/` directory should look similar to:
 
 ```text
@@ -340,7 +340,7 @@ After execution, for a RAW disk type, your `examples/elemental/customize/single-
 
 #### Booting the image
 
-Following what is described in the [Booting a customized image](#booting-a-customized-image) section, we boot a virtual machine using Libvirt: 
+Following what is described in the [Booting a customized image](#booting-a-customized-image) section, you boot a virtual machine using Libvirt:
 
 ```shell
 virt-install --name single-node-example \
@@ -360,7 +360,7 @@ virt-install --name single-node-example \
 
 #### Environment overview
 
-Once the machine has successfully been booted with the customized image, you can verify the environment going through the following set of steps:
+Once the machine has successfully been booted with the customized image, you can verify the environment by going through the following set of steps:
 
 1. Verify that the expected operating system is running:
 
@@ -493,7 +493,7 @@ Furthermore, using this image, the user wants to setup a multi-node Kubernetes c
 
 #### Configuration directory setup
 
-The user creates a [configuration directory](../examples/elemental/customize/multi-node/) that describes the desired configurations that needs to be applied over the desired `Product` release.
+The user creates a [configuration directory](../examples/elemental/customize/multi-node/) that describes the desired configurations that need to be applied over the desired `Product` release.
 
 The contents of the directory are the same as the contents for a [single-node Kubernetes setup](#configuration-directory-setup-1), with the following additions:
 
@@ -504,7 +504,7 @@ The contents of the directory are the same as the contents for a [single-node Ku
 #### Producing the customized image
 
 1. Navigate to your configuration directory:
-   
+
    ```shell
    cd examples/elemental/customize/multi-node/
    ```
@@ -515,8 +515,8 @@ The contents of the directory are the same as the contents for a [single-node Ku
    ```shell
    podman run -it -v .:/config -v /run/podman/podman.sock:/var/run/docker.sock $ELEMENTAL_IMAGE customize --type raw --local
    ```
-   
-After execution, for a RAW disk type, your `examples/elemental/customize/single-node/` directory should look similar to:
+
+After execution, for a RAW disk type, your `examples/elemental/customize/multi-node/` directory should look similar to:
 
 ```text
 .
@@ -535,7 +535,7 @@ After execution, for a RAW disk type, your `examples/elemental/customize/single-
 
 > **NOTE:** This section assumes that each node will be booted using a copy of the produced `customized.raw` image as disk.
 
-Following what is described in the "[Booting a customized image](#booting-a-customized-image)" section, for each desired node, we boot a virtual machine using the following template: 
+Following what is described in the "[Booting a customized image](#booting-a-customized-image)" section, for each desired node, you boot a virtual machine using the following template:
 
 ```shell
 virt-install --name <machine-name> \
@@ -562,10 +562,10 @@ Where:
 Much of the environment validation is the same as for the [single-node Kubernetes cluster](#environment-overview-1) environment with following validation additions:
 
 1. Validate [endpoint-copier-operator](https://github.com/suse-edge/endpoint-copier-operator) is deployed:
-   
+
    ```shell
    kubectl get pods -n endpoint-copier-operator
-   
+
    # Example output
    NAME                                        READY   STATUS    RESTARTS      AGE
    endpoint-copier-operator-695f9b84f6-lcvmw   1/1     Running   1 (17m ago)   19m
@@ -573,7 +573,7 @@ Much of the environment validation is the same as for the [single-node Kubernete
    ```
 
 1. Validate `kubernetes-vip` service is created and running the IP specified in the [kubernetes.yaml](../examples/elemental/customize/multi-node/kubernetes.yaml) file:
-   
+
    ```shell
    kubectl get svc kubernetes-vip
 
