@@ -122,6 +122,12 @@ func WithRawDiskSize(size deployment.MiB) Option {
 	}
 }
 
+func WithOutputFile(outputFile string) Option {
+	return func(i *Media) {
+		i.outputFile = outputFile
+	}
+}
+
 func NewMedia(ctx context.Context, s *sys.System, mType MediaType, opts ...Option) *Media {
 	media := &Media{
 		Name:       "installer",
@@ -492,9 +498,11 @@ func (i *Media) sanitize() error {
 		}
 	}
 
-	i.outputFile = filepath.Join(i.OutputDir, fmt.Sprintf("%s.%s", i.Name, i.mType.String()))
-	if ok, _ := vfs.Exists(i.s.FS(), i.outputFile); ok {
-		return fmt.Errorf("target output file %s is an already existing file", i.outputFile)
+	if i.outputFile == "" {
+		i.outputFile = filepath.Join(i.OutputDir, fmt.Sprintf("%s.%s", i.Name, i.mType.String()))
+		if ok, _ := vfs.Exists(i.s.FS(), i.outputFile); ok {
+			return fmt.Errorf("target output file %s is an already existing file", i.outputFile)
+		}
 	}
 
 	return nil

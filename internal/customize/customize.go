@@ -108,7 +108,9 @@ func (r *Runner) Run(ctx context.Context, def *image.Definition, output config.O
 		return err
 	}
 
-	mediaOpts := []installer.Option{}
+	mediaOpts := []installer.Option{
+		installer.WithOutputFile(filepath.Base(def.Image.OutputImageName)),
+	}
 	if mediaType == installer.Disk {
 		diskSizeStr := def.Configuration.Installation.RAW.DiskSize
 		if diskSizeStr == "" {
@@ -133,7 +135,6 @@ func (r *Runner) Run(ctx context.Context, def *image.Definition, output config.O
 		media := installer.NewMedia(ctx, r.System, mediaType, mediaOpts...)
 		media.InputFile = iso
 		media.OutputDir = filepath.Dir(def.Image.OutputImageName)
-		media.Name = filepath.Base(def.Image.OutputImageName)
 		r.Media = media
 	}
 
