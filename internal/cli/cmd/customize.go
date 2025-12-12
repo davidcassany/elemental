@@ -20,6 +20,7 @@ package cmd
 import (
 	"fmt"
 	"runtime"
+	"slices"
 
 	"github.com/suse/elemental/v3/pkg/installer"
 	"github.com/urfave/cli/v2"
@@ -41,7 +42,15 @@ func NewCustomizeCommand(appName string, action func(*cli.Context) error) *cli.C
 		Name:      "customize",
 		Usage:     "Customize an image based on a release",
 		UsageText: fmt.Sprintf("%s customize", appName),
-		Action:    action,
+		Before: func(*cli.Context) error {
+			modes := []string{"", "embedded", "split"}
+			if !slices.Contains(modes, CustomizeArgs.Mode) {
+				return cli.Exit("Error: Unsupported --mode option.", 1)
+			}
+
+			return nil
+		},
+		Action: action,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "type",
@@ -63,8 +72,9 @@ func NewCustomizeCommand(appName string, action func(*cli.Context) error) *cli.C
 				DefaultText: "image-<timestamp>.<image-type>",
 			},
 			&cli.StringFlag{
-				Name:        "mode",
-				Usage:       "Customization mode, 'embedded' (config in image) or 'split' (config separate)",
+				Name: "mode",
+				Usage: "Customization mode, 'embedded' (config partition within image) or " +
+					"'split' (configuration directory separate from the image)",
 				Destination: &CustomizeArgs.Mode,
 				Value:       "embedded",
 			},
