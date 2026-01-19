@@ -1,12 +1,12 @@
 #!/bin/bash
 
-set -e
+set -xe
 
 SCRIPT=$(realpath -s "${0}")
 SCRIPTS_PATH=$(dirname "${SCRIPT}")
 TESTS_PATH=$(realpath -s "${SCRIPTS_PATH}/../tests")
 
-: "${ELMNTL_PREFIX:=}" 
+: "${ELMNTL_PREFIX:=}"
 : "${ELMNTL_FIRMWARE:=/usr/share/qemu/ovmf-x86_64.bin}"
 : "${ELMNTL_FWDIP:=127.0.0.1}"
 : "${ELMNTL_FWDPORT:=2222}"
@@ -85,7 +85,7 @@ function start {
     cpu_arg="-cpu max,-pdpe1gb"
   fi
 
-  if [[ "${ELMNTL_ACCEL}" == "kvm" ]]; then
+  if [[ "${ELMNTL_ACCEL}" == "kvm" ]] && [ -e "/dev/kvm" ]; then
     cpu_arg="-cpu host"
     kvm_arg="-enable-kvm"
   fi
