@@ -6,17 +6,17 @@ require (
 	dario.cat/mergo v1.0.2
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/containerd/containerd/v2 v2.2.1
-	github.com/coreos/butane v0.25.1
+	github.com/coreos/butane v0.26.0
 	github.com/coreos/ignition/v2 v2.25.1
 	github.com/distribution/reference v0.6.0
 	github.com/docker/go-units v0.5.0
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/onsi/ginkgo/v2 v2.27.4
+	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.39.0
 	github.com/pkg/errors v0.9.1
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/twpayne/go-vfs/v4 v4.3.0
 	github.com/urfave/cli/v2 v2.27.7
 	go.yaml.in/yaml/v3 v3.0.4
