@@ -46,6 +46,8 @@ type Config struct {
 	AgentFilePath string
 	// ServerFilePath path to server.yaml rke2 configuration file
 	ServerFilePath string
+	// RegistriesFilePath path to the registries.yaml rke2 configuration file
+	RegistriesFilePath string
 }
 
 type Helm struct {

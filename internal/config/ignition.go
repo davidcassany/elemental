@@ -239,6 +239,18 @@ func appendRke2Configuration(s *sys.System, config *butane.Config, k *kubernetes
 		})
 	}
 
+	if c.RegistriesConfig != nil {
+		registriesBytes, err := marshalConfig(c.RegistriesConfig)
+		if err != nil {
+			return fmt.Errorf("failed marshaling agent config: %w", err)
+		}
+
+		config.Storage.Files = append(config.Storage.Files, v0_6.File{
+			Path:     filepath.Join(k8sPath, "registries.yaml"),
+			Contents: v0_6.Resource{Inline: util.StrToPtr(string(registriesBytes))},
+		})
+	}
+
 	if k.Network.APIVIP4 != "" || k.Network.APIVIP6 != "" {
 		manifestsPath := filepath.Join("/", image.KubernetesManifestsPath())
 

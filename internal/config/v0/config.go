@@ -69,6 +69,10 @@ func (dir Dir) KubernetesServerFilepath() string {
 	return filepath.Join(dir.KubernetesConfigDir(), "server.yaml")
 }
 
+func (dir Dir) KubernetesRegistriesFilepath() string {
+	return filepath.Join(dir.KubernetesConfigDir(), "registries.yaml")
+}
+
 func (dir Dir) KubernetesManifestsDir() string {
 	return filepath.Join(dir.kubernetesDir(), "manifests")
 }
@@ -265,6 +269,11 @@ func parseKubernetesDir(f vfs.FS, configDir Dir, k *kubernetes.Kubernetes, r *re
 	agentYamlPath := configDir.KubernetesAgentFilepath()
 	if exists, _ := vfs.Exists(f, agentYamlPath); exists {
 		k.Config.AgentFilePath = agentYamlPath
+	}
+
+	registriesYamlPath := configDir.KubernetesRegistriesFilepath()
+	if exists, _ := vfs.Exists(f, registriesYamlPath); exists {
+		k.Config.RegistriesFilePath = registriesYamlPath
 	}
 
 	return parseKubernetes(f, configDir, k, r)
