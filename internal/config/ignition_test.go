@@ -26,6 +26,7 @@ import (
 
 	v0 "github.com/suse/elemental/v3/internal/config/v0"
 	"github.com/suse/elemental/v3/internal/image"
+	"github.com/suse/elemental/v3/internal/image/kubernetes"
 	"github.com/suse/elemental/v3/pkg/log"
 	"github.com/suse/elemental/v3/pkg/manifest/api"
 	"github.com/suse/elemental/v3/pkg/sys"
@@ -48,7 +49,8 @@ var _ = Describe("Ignition configuration", func() {
 	BeforeEach(func() {
 		buffer = &bytes.Buffer{}
 		fs, cleanup, err = sysmock.TestFS(map[string]any{
-			"/etc/kubernetes/config/server.yaml": "",
+			"/etc/kubernetes/config/server.yaml":     "",
+			"/etc/kubernetes/config/registries.yaml": "key: 'value'\n",
 		})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -110,7 +112,14 @@ passwd:
 	})
 
 	It("Configures kubernetes via Ignition with the given k8s script", func() {
-		conf := &image.Configuration{}
+		// includes registries configuration
+		conf := &image.Configuration{
+			Kubernetes: kubernetes.Kubernetes{
+				Config: kubernetes.Config{
+					RegistriesFilePath: "/etc/kubernetes/config/registries.yaml",
+				},
+			},
+		}
 		ignitionFile := filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath())
 
 		k8sScript := filepath.Join(output.OverlaysDir(), "path/to/k8s/script.sh")
@@ -126,6 +135,7 @@ passwd:
 		Expect(ignition).NotTo(ContainSubstring("/etc/elemental/extensions.yaml"))
 		Expect(ignition).To(ContainSubstring("Kubernetes Resources Installer"))
 		Expect(ignition).To(ContainSubstring("Kubernetes Installation and Configuration"))
+		Expect(ignition).To(ContainSubstring("/var/lib/elemental/kubernetes/registries.yaml"))
 	})
 
 	It("Writes systemd extension via Ignition", func() {
@@ -149,6 +159,7 @@ passwd:
 		Expect(ignition).NotTo(ContainSubstring("merge"))
 		Expect(ignition).NotTo(ContainSubstring("Kubernetes Resources Installer"))
 		Expect(ignition).NotTo(ContainSubstring("Kubernetes Config Installer"))
+		Expect(ignition).NotTo(ContainSubstring("/var/lib/elemental/kubernetes/registries.yaml"))
 	})
 
 	It("Fails to translate a butaneConfig with a wrong version or variant", func() {
