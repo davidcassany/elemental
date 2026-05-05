@@ -36,6 +36,12 @@ debug: true
 server: cluster1.suse.com
 cni: canal
 `
+	exampleRegistriesYaml = `
+mirrors:
+  mirror.example.com:
+    endpoint:
+    - https://mirror.example.com
+`
 )
 
 var _ = Describe("Cluster", func() {
@@ -49,10 +55,11 @@ var _ = Describe("Cluster", func() {
 		var err error
 
 		fs, cleanup, err = sysmock.TestFS(map[string]any{
-			"/etc/kubernetes/single-node/server.yaml": exampleServerYaml,
-			"/etc/kubernetes/multi-node/server.yaml":  exampleServerYaml,
-			"/etc/kubernetes/multi-node/agent.yaml":   exampleAgentYaml,
-			"/etc/kubernetes/empty/server.yaml":       "",
+			"/etc/kubernetes/single-node/server.yaml":    exampleServerYaml,
+			"/etc/kubernetes/multi-node/server.yaml":     exampleServerYaml,
+			"/etc/kubernetes/multi-node/agent.yaml":      exampleAgentYaml,
+			"/etc/kubernetes/multi-node/registries.yaml": exampleRegistriesYaml,
+			"/etc/kubernetes/empty/server.yaml":          "",
 		})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -130,13 +137,25 @@ var _ = Describe("Cluster", func() {
 				},
 			},
 			Config: Config{
-				ServerFilePath: "/etc/kubernetes/multi-node/server.yaml",
-				AgentFilePath:  "/etc/kubernetes/multi-node/agent.yaml",
+				ServerFilePath:     "/etc/kubernetes/multi-node/server.yaml",
+				AgentFilePath:      "/etc/kubernetes/multi-node/agent.yaml",
+				RegistriesFilePath: "/etc/kubernetes/multi-node/registries.yaml",
 			},
 		}
 
 		cluster, err := NewCluster(s, kubernetes)
 		Expect(err).ToNot(HaveOccurred())
+
+		Expect(cluster.RegistriesConfig).ToNot(BeEmpty())
+		Expect(cluster.RegistriesConfig["mirrors"]).ToNot(BeEmpty())
+		mirrors, ok := cluster.RegistriesConfig["mirrors"].(ConfigMap)
+		Expect(ok).To(BeTrue())
+		Expect(mirrors["mirror.example.com"]).ToNot(BeEmpty())
+		example, ok := mirrors["mirror.example.com"].(ConfigMap)
+		Expect(ok).To(BeTrue())
+		Expect(example["endpoint"]).ToNot(BeEmpty())
+		_, ok = example["endpoint"].([]any)
+		Expect(ok).To(BeTrue())
 
 		Expect(cluster.ServerConfig).ToNot(BeEmpty())
 		Expect(cluster.ServerConfig["cni"]).To(Equal("calico"))

@@ -49,8 +49,8 @@ func NewInstallCommand(appName string, action func(context.Context, *cli.Command
 		Action:    action,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:        "config",
-				Usage:       "Path to OS image post-commit script",
+				Name:        configFlg,
+				Usage:       configDesc,
 				Destination: &InstallArgs.ConfigScript,
 			},
 			&cli.StringFlag{
@@ -60,13 +60,13 @@ func NewInstallCommand(appName string, action func(context.Context, *cli.Command
 				Destination: &InstallArgs.Description,
 			},
 			&cli.StringFlag{
-				Name:        "os-image",
-				Usage:       "URI to the image containing the operating system",
+				Name:        osImgFlg,
+				Usage:       osImgDesc,
 				Destination: &InstallArgs.OperatingSystemImage,
 			},
 			&cli.StringFlag{
-				Name:        "overlay",
-				Usage:       "URI of the overlay content for the OS image",
+				Name:        overlayFlg,
+				Usage:       overlayDesc,
 				Destination: &InstallArgs.Overlay,
 			},
 			&cli.StringFlag{
@@ -76,8 +76,8 @@ func NewInstallCommand(appName string, action func(context.Context, *cli.Command
 				Destination: &InstallArgs.Target,
 			},
 			&cli.BoolFlag{
-				Name:        "create-boot-entry",
-				Usage:       "Create EFI boot entry",
+				Name:        createBootFlg,
+				Usage:       createBootDesc,
 				Destination: &InstallArgs.CreateBootEntry,
 			},
 			&cli.StringFlag{
@@ -88,20 +88,20 @@ func NewInstallCommand(appName string, action func(context.Context, *cli.Command
 				Destination: &InstallArgs.Bootloader,
 			},
 			&cli.StringFlag{
-				Name:        "cmdline",
+				Name:        cmdlineFlg,
 				Value:       "",
-				Usage:       "Kernel cmdline for installed system",
+				Usage:       cmdlineDesc,
 				Destination: &InstallArgs.KernelCmdline,
 			},
 			&cli.BoolFlag{
-				Name:        "verify",
+				Name:        verifyFlg,
 				Value:       true,
-				Usage:       "Verify OCI ssl",
+				Usage:       verifyDesc,
 				Destination: &InstallArgs.Verify,
 			},
 			&cli.BoolFlag{
-				Name:        "local",
-				Usage:       "Load OCI images from the local container storage instead of a remote registry",
+				Name:        localFlg,
+				Usage:       localDesc,
 				Destination: &InstallArgs.Local,
 			},
 			&cli.StringFlag{

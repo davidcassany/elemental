@@ -101,17 +101,18 @@ var _ = Describe("Configuration", Label("configuration"), func() {
 
 	BeforeEach(func() {
 		fs, cleanup, err = sysmock.TestFS(map[string]any{
-			fmt.Sprintf("%s/install.yaml", configDir):                      installYAML,
-			fmt.Sprintf("%s/butane.yaml", configDir):                       butaneYAML,
-			fmt.Sprintf("%s/kubernetes/cluster.yaml", configDir):           kubernetesClusterYAML,
-			fmt.Sprintf("%s/release.yaml", configDir):                      releaseYAML,
-			fmt.Sprintf("%s/foo.yaml", configDir.HelmValuesDir()):          "",
-			fmt.Sprintf("%s/bar.yaml", configDir.KubernetesManifestsDir()): "",
-			fmt.Sprintf("%s/agent.yaml", configDir.KubernetesConfigDir()):  "",
-			fmt.Sprintf("%s/server.yaml", configDir.KubernetesConfigDir()): "",
-			fmt.Sprintf("%s/node1.foo.yaml", configDir.NetworkDir()):       "",
-			fmt.Sprintf("%s/scripts/foo.sh", configDir.CustomDir()):        "",
-			fmt.Sprintf("%s/files/foo", configDir.CustomDir()):             "",
+			fmt.Sprintf("%s/install.yaml", configDir):                          installYAML,
+			fmt.Sprintf("%s/butane.yaml", configDir):                           butaneYAML,
+			fmt.Sprintf("%s/kubernetes/cluster.yaml", configDir):               kubernetesClusterYAML,
+			fmt.Sprintf("%s/release.yaml", configDir):                          releaseYAML,
+			fmt.Sprintf("%s/foo.yaml", configDir.HelmValuesDir()):              "",
+			fmt.Sprintf("%s/bar.yaml", configDir.KubernetesManifestsDir()):     "",
+			fmt.Sprintf("%s/agent.yaml", configDir.KubernetesConfigDir()):      "",
+			fmt.Sprintf("%s/server.yaml", configDir.KubernetesConfigDir()):     "",
+			fmt.Sprintf("%s/registries.yaml", configDir.KubernetesConfigDir()): "",
+			fmt.Sprintf("%s/node1.foo.yaml", configDir.NetworkDir()):           "",
+			fmt.Sprintf("%s/scripts/foo.sh", configDir.CustomDir()):            "",
+			fmt.Sprintf("%s/files/foo", configDir.CustomDir()):                 "",
 		})
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -132,6 +133,7 @@ var _ = Describe("Configuration", Label("configuration"), func() {
 
 		Expect(conf.Kubernetes.Config.AgentFilePath).To(Equal(configDir.KubernetesAgentFilepath()))
 		Expect(conf.Kubernetes.Config.ServerFilePath).To(Equal(configDir.KubernetesServerFilepath()))
+		Expect(conf.Kubernetes.Config.RegistriesFilePath).To(Equal(configDir.KubernetesRegistriesFilepath()))
 		Expect(conf.Kubernetes.Helm).ToNot(BeNil())
 		Expect(conf.Kubernetes.Helm.Charts).ToNot(BeNil())
 		Expect(conf.Kubernetes.Helm.Charts[0].Name).To(Equal("foo"))
@@ -261,14 +263,16 @@ var _ = Describe("Configuration", Label("configuration"), func() {
 		Expect(err).To(MatchError("parsing custom directory: directory \"/tmp/config-dir/custom/files\" is empty"))
 	})
 
-	It("Parses {server,agent}.yaml without manifests subdir", func() {
+	It("Parses {server,agent}.yaml without manifests subdir or registries configuration", func() {
 		Expect(fs.RemoveAll(configDir.KubernetesManifestsDir())).To(Succeed())
+		Expect(fs.RemoveAll(configDir.KubernetesRegistriesFilepath())).To(Succeed())
 
 		cfg, err := Parse(fs, configDir)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(cfg.Kubernetes.Config.ServerFilePath).To(Equal("/tmp/config-dir/kubernetes/config/server.yaml"))
 		Expect(cfg.Kubernetes.Config.AgentFilePath).To(Equal("/tmp/config-dir/kubernetes/config/agent.yaml"))
+		Expect(cfg.Kubernetes.Config.RegistriesFilePath).To(BeEmpty())
 	})
 
 	It("Fails on invalid configuration", func() {

@@ -40,6 +40,8 @@ import (
 type contextKey string
 
 const (
+	initrdMnt = "x-initrd.mount"
+
 	contextKeySystem               contextKey = "system"
 	contextKeySkipDiskDeviceExists contextKey = "skip_disk_device_exists"
 )
@@ -981,9 +983,9 @@ func DefaultDeployment() *Deployment {
 					Size:       AllAvailableSize,
 					MountOpts:  []string{"ro=vfs"},
 					RWVolumes: []RWVolume{
-						{Path: "/var", NoCopyOnWrite: true, MountOpts: []string{"x-initrd.mount"}},
-						{Path: "/root", MountOpts: []string{"x-initrd.mount"}},
-						{Path: "/etc", Snapshotted: true, MountOpts: []string{"x-initrd.mount"}},
+						{Path: "/var", NoCopyOnWrite: true, MountOpts: []string{initrdMnt}},
+						{Path: "/root", MountOpts: []string{initrdMnt}},
+						{Path: "/etc", Snapshotted: true, MountOpts: []string{initrdMnt}},
 						{Path: "/opt"}, {Path: "/srv"}, {Path: "/home"}, {Path: "/usr/local"},
 					},
 				},

@@ -512,7 +512,7 @@ func (i *Media) sanitize() error {
 }
 
 func (i Media) customizeISO(inputFile, outputFile string, fileMap map[string]string) error {
-	args := []string{"-indev", inputFile, "-outdev", outputFile, "-boot_image", "any", "replay"}
+	args := []string{"-indev", inputFile, "-outdev", outputFile, "-boot_image", "any", "replay"} //nolint:goconst
 
 	for f, m := range fileMap {
 		args = append(args, "-map", f, m)
@@ -826,6 +826,8 @@ func (i Media) buildISO(tempDir, isoDir, osRoot, kernelCmdline string) error {
 }
 
 // xorrisoBootloaderArgs returns a slice of flags for xorriso to defined a common bootloader parameters
+//
+//nolint:goconst
 func xorrisoBootloaderArgs(efiImg string) []string {
 	args := []string{
 		"-append_partition", "2", "0xef", efiImg,

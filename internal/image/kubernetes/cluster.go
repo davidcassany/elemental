@@ -51,9 +51,16 @@ type Cluster struct {
 	InitServerConfig ConfigMap
 	// AgentConfig contains the agent configurations in multi node clusters.
 	AgentConfig ConfigMap
+	// RegistriesConfig contains the configurations for private or embedded registries
+	RegistriesConfig ConfigMap
 }
 
 func NewCluster(s *sys.System, kube *Kubernetes) (*Cluster, error) {
+	registriesConfig, err := ParseKubernetesConfig(s, kube.Config.RegistriesFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("parsing registries config: %w", err)
+	}
+
 	serverConfig, err := ParseKubernetesConfig(s, kube.Config.ServerFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("parsing server config: %w", err)
@@ -61,7 +68,10 @@ func NewCluster(s *sys.System, kube *Kubernetes) (*Cluster, error) {
 
 	if len(kube.Nodes) < 2 {
 		setSingleNodeConfigDefaults(s.Logger(), kube, serverConfig)
-		return &Cluster{ServerConfig: serverConfig}, nil
+		return &Cluster{
+			ServerConfig:     serverConfig,
+			RegistriesConfig: registriesConfig,
+		}, nil
 	}
 
 	var ip4 netip.Addr
@@ -105,6 +115,7 @@ func NewCluster(s *sys.System, kube *Kubernetes) (*Cluster, error) {
 		InitServerConfig: initConfig,
 		ServerConfig:     serverConfig,
 		AgentConfig:      agentConfig,
+		RegistriesConfig: registriesConfig,
 	}, err
 }
 

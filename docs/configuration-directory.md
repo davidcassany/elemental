@@ -190,14 +190,16 @@ The directory's structure is as follows:
     │   └── local-manifest.yaml
     └── config
         ├── agent.yaml
-        └── server.yaml
+        ├── server.yaml
+        └── registries.yaml
 ```
 
 * `helm` - Optional; Contains locally provided Helm chart configurations
   * `values` - Optional; Contains [Helm values files](https://helm.sh/docs/chart_template_guide/values_files/). Helm charts that requirespecified values must have a values file included in this directory.
 * `manifests` - Optional; Contains locally provided Kubernetes manifests which will be applied to the cluster. Can
   be used separately or in combination with the manifests provided in the `cluster.yaml` file.
-* `config` - Optional; Contains locally provided Kubernetes configuration files, `server.yaml` for control-plane nodes and `agent.yaml` for workers.
+* `config` - Optional; Contains locally provided Kubernetes configuration files, `server.yaml` for control-plane nodes and `agent.yaml` for workers. The `registries.yaml` is the
+[private registry configuration](https://docs.rke2.io/install/private_registry), if present, it is applied for all nodes.
 
 ## Network
 
