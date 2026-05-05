@@ -519,6 +519,7 @@ The contents of the directory are the same as the contents for a [single-node Ku
 
 - [network/](../examples/elemental/customize/multi-node/network/) - add network configuration for each desired node. This example configures the static IPs `192.168.122.250`, `192.168.122.251`, `192.168.122.252` and `192.168.122.253` for machines with the respective `FE:C4:05:42:8B:01`, `FE:C4:05:42:8B:02`, `FE:C4:05:42:8B:03` and `FE:C4:05:42:8B:04` MAC addresses.
 - [kubernetes/config/agent.yaml](../examples/elemental/customize/multi-node/kubernetes/config/agent.yaml) - add configuration for the agent node.
+- [kubernetes/config/registries.yaml](../examples/elemental/customize/multi-node/kubernetes/config/registries.yaml) - add configuration for the embedded private registry. This example sets the embedded spegel registry to cache images from registry.suse.com. This way images such as the OS image is pulled only once from the remote registry during upgrades.
 - [kubernetes/cluster.yaml](../examples/elemental/customize/multi-node/kubernetes/cluster.yaml) - add multi-node cluster configuration that specifies the node's roles as well as the cluster's network setup.
 
 #### Producing the customized image
