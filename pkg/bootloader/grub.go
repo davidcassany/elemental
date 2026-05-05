@@ -36,6 +36,8 @@ import (
 	"github.com/suse/elemental/v3/pkg/sys/vfs"
 )
 
+const grubImg = "grub.efi"
+
 type Grub struct {
 	s *sys.System
 }
@@ -396,9 +398,9 @@ func grubArch(arch string) string {
 func bootFiles(arch string) []string {
 	switch arch {
 	case platform.ArchRiscv64:
-		return []string{"grub.efi"}
+		return []string{grubImg}
 	default:
-		return []string{"grub.efi", "MokManager.efi"}
+		return []string{grubImg, "MokManager.efi"}
 	}
 
 }
@@ -418,7 +420,7 @@ func defaultEfiBootFileName(p *platform.Platform) (string, string) {
 		return shimEfi, "bootaa64.efi"
 	case platform.ArchRiscv64:
 		// shim does not exist yet on riscv64
-		return "grub.efi", "bootriscv64.efi"
+		return grubImg, "bootriscv64.efi"
 	default:
 		return shimEfi, "bootx64.efi"
 	}

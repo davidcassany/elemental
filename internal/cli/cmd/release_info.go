@@ -43,8 +43,8 @@ func NewReleaseInfoCommand(appName string, releaseInfoAction func(context.Contex
 		Action:      releaseInfoAction,
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
-				Name:        "local",
-				Usage:       "Load OCI images from the local container storage instead of a remote registry",
+				Name:        localFlg,
+				Usage:       localDesc,
 				Destination: &ReleaseInfoArgs.Local,
 			},
 			&cli.BoolFlag{

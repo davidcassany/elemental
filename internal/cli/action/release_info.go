@@ -42,6 +42,11 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+const (
+	versionHdr = "Version"
+	sourceHdr  = "Source"
+)
+
 // to keep a track if user requested for markdown output
 var markdown bool
 
@@ -240,16 +245,16 @@ func printBasicData(cm *core.ReleaseManifest, pm *product.ReleaseManifest, arg s
 
 		table.Header([]string{"Attribute", "Core Platform (Base)", "Product Manifest (Extension)"})
 		data = append(data, []string{"Name", cmBasic.Name, pmBasic.Name})
-		data = append(data, []string{"Version", cmBasic.Version, pm.Metadata.Version})
+		data = append(data, []string{versionHdr, cmBasic.Version, pm.Metadata.Version})
 		data = append(data, []string{"Release Date", cmBasic.CreationDate, pm.Metadata.CreationDate})
-		data = append(data, []string{"Source", cmBasic.Source, pmBasic.Source})
+		data = append(data, []string{sourceHdr, cmBasic.Source, pmBasic.Source})
 	} else {
 		// we are dealing with a core manifest
 		table.Header([]string{"Attribute", "Core Platform (Base)"})
 		data = append(data, []string{"Name", cmBasic.Name})
-		data = append(data, []string{"Version", cmBasic.Version})
+		data = append(data, []string{versionHdr, cmBasic.Version})
 		data = append(data, []string{"Release Data", cmBasic.CreationDate})
-		data = append(data, []string{"Source", cmBasic.Source})
+		data = append(data, []string{sourceHdr, cmBasic.Source})
 
 	}
 	return printAndClearData(table, data, out)
@@ -258,7 +263,7 @@ func printBasicData(cm *core.ReleaseManifest, pm *product.ReleaseManifest, arg s
 func printInfraData(cm *core.ReleaseManifest, out io.Writer) error {
 	var data [][]string
 	table := newTable(markdown, out)
-	table.Header([]string{"Infrastructure Components", "Version", "Source"})
+	table.Header([]string{"Infrastructure Components", versionHdr, sourceHdr})
 
 	osVersion := "Unknown"
 	if cm.Components.OperatingSystem.Image.Base != "" {
@@ -308,7 +313,7 @@ func printHelmChartsData(cm *core.ReleaseManifest, pm *product.ReleaseManifest, 
 	if pm != nil {
 		if cm.Components.Helm != nil && len(cm.Components.Helm.Charts) > 0 {
 			table = newTable(markdown, out)
-			table.Header([]string{"Chart Name", "Version", "Repository", "Target Namespace", "Depends On"})
+			table.Header([]string{"Chart Name", versionHdr, "Repository", "Target Namespace", "Depends On"})
 
 			data = coreManifestHelmChartsData(cm.Components.Helm)
 		}
@@ -328,7 +333,7 @@ func printHelmChartsData(cm *core.ReleaseManifest, pm *product.ReleaseManifest, 
 		}
 	} else if cm.Components.Helm != nil && len(cm.Components.Helm.Charts) > 0 {
 		table = newTable(markdown, out)
-		table.Header([]string{"Chart Name", "Version", "Repository", "Target Namespace", "Depends On"})
+		table.Header([]string{"Chart Name", versionHdr, "Repository", "Target Namespace", "Depends On"})
 
 		data = coreManifestHelmChartsData(cm.Components.Helm)
 

@@ -49,7 +49,7 @@ func NewBuildInstallerCommand(appName string, action func(context.Context, *cli.
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "install-config",
-				Usage:       "Path to OS image post-commit script",
+				Usage:       configDesc,
 				Destination: &InstallerArgs.InstallSpec.ConfigScript,
 			},
 			&cli.StringFlag{
@@ -59,7 +59,7 @@ func NewBuildInstallerCommand(appName string, action func(context.Context, *cli.
 			},
 			&cli.StringFlag{
 				Name:        "install-overlay",
-				Usage:       "URI of the overlay content for the OS image",
+				Usage:       overlayDesc,
 				Destination: &InstallerArgs.InstallSpec.Overlay,
 			},
 			&cli.StringFlag{
@@ -70,28 +70,28 @@ func NewBuildInstallerCommand(appName string, action func(context.Context, *cli.
 			&cli.StringFlag{
 				Name:        "install-cmdline",
 				Value:       "",
-				Usage:       "Kernel cmdline for installed system",
+				Usage:       cmdlineDesc,
 				Destination: &InstallerArgs.InstallSpec.KernelCmdline,
 			},
 			&cli.StringFlag{
-				Name:        "config",
+				Name:        configFlg,
 				Usage:       "Path to installer media config script",
 				Destination: &InstallerArgs.ConfigScript,
 			},
 			&cli.BoolFlag{
-				Name:        "verify",
+				Name:        verifyFlg,
 				Value:       true,
-				Usage:       "Verify OCI ssl",
+				Usage:       verifyDesc,
 				Destination: &InstallerArgs.Verify,
 			},
 			&cli.BoolFlag{
-				Name:        "local",
-				Usage:       "Load OCI images from the local container storage instead of a remote registry",
+				Name:        localFlg,
+				Usage:       localDesc,
 				Destination: &InstallerArgs.Local,
 			},
 			&cli.StringFlag{
-				Name:        "output",
-				Usage:       "Location for the temporary build-time files and the resulting image",
+				Name:        outputFlg,
+				Usage:       outputDesc,
 				Destination: &InstallerArgs.OutputDir,
 				Required:    true,
 			},
@@ -101,13 +101,13 @@ func NewBuildInstallerCommand(appName string, action func(context.Context, *cli.
 				Destination: &InstallerArgs.Name,
 			},
 			&cli.StringFlag{
-				Name:        "os-image",
-				Usage:       "URI to the image containing the operating system",
+				Name:        osImgFlg,
+				Usage:       osImgDesc,
 				Destination: &InstallerArgs.OperatingSystemImage,
 				Required:    true,
 			},
 			&cli.StringFlag{
-				Name:        "overlay",
+				Name:        overlayFlg,
 				Usage:       "URI of the data to include in installer media",
 				Destination: &InstallerArgs.Overlay,
 			},
@@ -117,7 +117,7 @@ func NewBuildInstallerCommand(appName string, action func(context.Context, *cli.
 				Destination: &InstallerArgs.Label,
 			},
 			&cli.StringFlag{
-				Name:        "cmdline",
+				Name:        cmdlineFlg,
 				Usage:       "Kernel command line to boot the installer media",
 				Destination: &InstallerArgs.KernelCmdLine,
 			},

@@ -118,7 +118,7 @@ func (sn Snapper) InitRootVolumes(root string) error {
 }
 
 func (sn Snapper) ListSnapshots(root string, config string) (Snapshots, error) {
-	args := []string{"--no-dbus"}
+	args := noDbusArgs()
 	if root != "" && root != "/" {
 		args = append(args, "--root", root)
 	}
@@ -158,7 +158,7 @@ func (sn Snapper) CreateConfig(root, volumePath string) error {
 		return err
 	}
 	conf := ConfigName(volumePath)
-	args := []string{"--no-dbus"}
+	args := noDbusArgs()
 	if root != "" && root != "/" {
 		args = append(args, "--root", root)
 	}
@@ -170,7 +170,7 @@ func (sn Snapper) CreateConfig(root, volumePath string) error {
 // CreateSnapshot creates a new snapper snapshot by calling "snapper create"
 func (sn Snapper) CreateSnapshot(root string, config string, base int, rw bool, description string, metadata Metadata) (int, error) {
 	var newSnap int
-	args := []string{"--no-dbus"}
+	args := noDbusArgs()
 
 	if root != "" && root != "/" {
 		args = append(args, "--root", root)
@@ -206,7 +206,7 @@ func (sn Snapper) CreateSnapshot(root string, config string, base int, rw bool, 
 }
 
 func (sn Snapper) SetPermissions(root string, id int, rw bool) error {
-	args := []string{"--no-dbus"}
+	args := noDbusArgs()
 
 	if root != "" && root != "/" {
 		args = append(args, "--root", root)
@@ -224,7 +224,7 @@ func (sn Snapper) SetPermissions(root string, id int, rw bool) error {
 }
 
 func (sn Snapper) SetDefault(root string, id int, metadata Metadata) error {
-	args := []string{"--no-dbus"}
+	args := noDbusArgs()
 
 	if root != "" && root != "/" {
 		args = append(args, "--root", root)
@@ -324,7 +324,7 @@ func (sn Snapper) ConfigureRoot(snapshotPath string, maxSnapshots int) error {
 }
 
 func (sn Snapper) Status(root, config, output string, num1, num2 int) error {
-	args := []string{"--no-dbus"}
+	args := noDbusArgs()
 
 	if root != "" && root != "/" {
 		args = append(args, "--root", root)
@@ -367,4 +367,8 @@ func unmarshalSnapperList(snapperOut []byte, config string) (Snapshots, error) {
 	}
 
 	return snapshots, nil
+}
+
+func noDbusArgs() []string {
+	return []string{"--no-dbus"}
 }

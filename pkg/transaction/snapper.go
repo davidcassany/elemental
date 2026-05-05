@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strconv"
 
 	"github.com/suse/elemental/v3/pkg/block"
 	"github.com/suse/elemental/v3/pkg/block/lsblk"
@@ -319,13 +320,13 @@ func (sn snapperT) createSnapshottedVolWithMerge(root string, target string, rwV
 	if err != nil {
 		return nil, fmt.Errorf("listing snapshots for rw volume '%s': %w", rwVol.Path, err)
 	}
-	stock := snaps.GetWithUserdata("stock", "true")
+	stock := snaps.GetWithUserdata("stock", strconv.FormatBool(true))
 	if len(stock) != 1 {
 		return nil, fmt.Errorf("inconsistent number of stock rw snapshots for subvolume '%s': %d", rwVol.Path, len(stock))
 	}
 	preID, err := sn.snap.CreateSnapshot(
 		root, snapper.ConfigName(rwVol.Path), 0, false,
-		fmt.Sprintf("pre-transaction %s snapshot", rwVol.Path), map[string]string{"pre-transaction": "true"},
+		fmt.Sprintf("pre-transaction %s snapshot", rwVol.Path), map[string]string{"pre-transaction": strconv.FormatBool(true)},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating the pre-transaction snapshot for volume '%s': %w", rwVol.Path, err)
@@ -370,7 +371,7 @@ func (sn snapperT) createPostSnapshots(root string) (err error) {
 		_, err = sn.snap.CreateSnapshot(
 			root, snapper.ConfigName(rwVol.Path), 0, false,
 			fmt.Sprintf("post-transaction %s snapshot", rwVol.Path),
-			map[string]string{"post-transaction": "true"},
+			map[string]string{"post-transaction": strconv.FormatBool(true)},
 		)
 		if err != nil {
 			return err
