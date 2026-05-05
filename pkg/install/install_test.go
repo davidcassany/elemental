@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,11 +40,19 @@ func TestInstallSuite(t *testing.T) {
 	RunSpecs(t, "Install test suite")
 }
 
-const systemdRepartJson = `[
-	{"uuid" : "c60d1845-7b04-4fc4-8639-8c49eb7277d5", "file" : "/tmp/elemental-repart.d/0-efi.conf"},
-	{"uuid" : "ddb334a8-48a2-c4de-ddb3-849eb2443e92", "file" : "/tmp/elemental-repart.d/1-recovery.conf"},
-	{"uuid" : "34a8abb8-ddb3-48a2-8ecc-2443e92c7510", "file" : "/tmp/elemental-repart.d/2-system.conf"}
-]`
+func systemdRepartJson(args ...string) []byte {
+	definitions := "/tmp/elemental-repart.d"
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--definitions=") {
+			definitions = strings.TrimPrefix(arg, "--definitions=")
+		}
+	}
+	return []byte(fmt.Sprintf(`[
+	{"uuid" : "c60d1845-7b04-4fc4-8639-8c49eb7277d5", "file" : "%s/0-efi.conf"},
+	{"uuid" : "ddb334a8-48a2-c4de-ddb3-849eb2443e92", "file" : "%s/1-recovery.conf"},
+	{"uuid" : "34a8abb8-ddb3-48a2-8ecc-2443e92c7510", "file" : "%s/2-system.conf"}
+]`, definitions, definitions, definitions))
+}
 
 const sectorSizeJson = `{
    "blockdevices": [
@@ -143,7 +152,7 @@ var _ = Describe("Install", Label("install"), func() {
 			return runner.ReturnValue, runner.ReturnError
 		}
 		sideEffects["systemd-repart"] = func(args ...string) ([]byte, error) {
-			return []byte(systemdRepartJson), runner.ReturnError
+			return systemdRepartJson(args...), runner.ReturnError
 		}
 		sideEffects["lsblk"] = func(args ...string) ([]byte, error) {
 			if slices.Contains(args, "NAME,LOG-SEC") {
