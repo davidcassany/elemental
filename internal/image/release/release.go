@@ -20,7 +20,6 @@ package release
 import "github.com/suse/elemental/v3/internal/image/auth"
 
 type Release struct {
-	Name        string     `yaml:"name,omitempty"`
 	ManifestURI string     `yaml:"manifestURI" validate:"required"`
 	Components  Components `yaml:"components,omitempty"`
 }

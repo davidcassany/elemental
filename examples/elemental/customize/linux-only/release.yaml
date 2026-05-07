@@ -1,2 +1,1 @@
-name: suse-product
 manifestURI: oci://registry.suse.com/beta/uc/release-manifest:0.6_rke2_1.35

@@ -23,7 +23,6 @@ Consumers can use the `release.yaml` file to configure the desired product that 
 ### release.yaml
 
 ```yaml
-name: suse-product
 manifestURI: file:///path/to/manifest/suse-product-manifest.yaml
 # manifestURI: oci://registry.suse.com/suse-product/release-manifest:0.0.1
 components:
@@ -39,7 +38,6 @@ components:
     - extension: bar
 ```
 
-* `name` - Optional; Name of the product that all other configurations will be based on.
 * `manifestURI` - Required; URI to a release manifest for the Core Platform or the Product that will be used as base. For more information, refer to the [Release Manifest](./release-manifest.md) guide. Supports both local file (file://) and OCI image (oci://) definitions.
 * `components` - Optional; Components to explicitly enable from the Core Platform base.
   * `kubernetes` - Optional; If set (even if empty), enables Kubernetes distribution installation. If you also define cluster configuration, Helm charts or Kubernetes manifests, a cluster will be automatically enabled and this field is not required.
