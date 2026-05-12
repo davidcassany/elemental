@@ -149,6 +149,44 @@ The k8s-dynamic service generates the RKE2 config file based on node type:
 | server | false | `server.yaml` |
 | agent | false | `agent.yaml` |
 
+### Runtime Helm values
+
+Dynamic nodes can override values for Helm charts already baked into the image:
+
+```yaml
+helm:
+  values:
+    cert-manager:
+      crds:
+        enabled: true
+    rancher:
+      hostname: rancher.example.com
+```
+
+The key below `helm.values` must match the generated HelmChart resource name in `/var/lib/elemental/kubernetes/helm`. Runtime values are merged after build-time inline values and build-time values files. Maps merge recursively, scalar values replace existing scalar values, and lists replace existing lists.
+
+Runtime user data cannot add, remove, or change Helm charts, chart versions, repositories, or dependencies. Unknown chart names and invalid chart override roots are recoverable configuration errors: SSH keys and RKE2 configuration are still applied, and diagnostics are written to `/var/lib/elemental/k8s-dynamic/status.yaml`.
+
+The status file records whether overrides were applied, the error message when validation fails, and known chart names. It does not include raw Helm override values.
+
+### Resource deployment authority
+
+Dynamic mode separates RKE2 bootstrap from resource deployment:
+
+```yaml
+rke2:
+  type: server
+  init: true
+
+elemental:
+  kubernetes:
+    deployResources: true
+```
+
+`rke2.init` only controls RKE2 cluster bootstrapping. `elemental.kubernetes.deployResources` controls whether the node may run image-bundled Helm charts and manifests. If the field is omitted, it defaults to `true`. Set it to `false` on nodes that should join the cluster without applying bundled resources.
+
+Rig should set `deployResources: true` only on the intended resource-deployment server. For HA upgrades, early replacement servers should use `false`; the final replacement server should use `true`; agents should use `false`. Elemental does not infer HA topology or upgrade phase from user data.
+
 ## Example Configuration
 
 ### Building the Image

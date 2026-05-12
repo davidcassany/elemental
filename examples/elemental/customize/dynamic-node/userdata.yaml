@@ -5,3 +5,26 @@ enabled: true
 providers: ["auto"]  # auto-detect: aws, azure, gcp, filesystem
 timeout: 120
 retries: 5
+
+# Example runtime user data fields supplied to the node by the provider:
+#
+# hostname: dynamic-server.example.com
+#
+# rke2:
+#   type: server
+#   init: true
+#   token: example-token
+#
+# elemental:
+#   kubernetes:
+#     deployResources: true
+#
+# helm:
+#   values:
+#     rancher:
+#       hostname: rancher.example.com
+#
+# users:
+#   - name: root
+#     ssh_authorized_keys:
+#       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyForDynamicNode root@example

@@ -125,7 +125,7 @@ func (m *Manager) configureIgnition(conf *image.Configuration, output Output, k8
 			}
 		}
 
-		k8sResourcesUnit, err := generateK8sResourcesUnit(k8sScript, initHostname)
+		k8sResourcesUnit, err := generateK8sResourcesUnit(k8sScript, initHostname, conf.UserData.Enabled)
 		if err != nil {
 			return err
 		}
@@ -160,15 +160,17 @@ func (m *Manager) configureIgnition(conf *image.Configuration, output Output, k8
 	return butane.WriteIgnitionFile(m.system, config, ignitionFile)
 }
 
-func generateK8sResourcesUnit(deployScript, initHostname string) (string, error) {
+func generateK8sResourcesUnit(deployScript, initHostname string, dynamic bool) (string, error) {
 	values := struct {
 		KubernetesDir        string
 		ManifestDeployScript string
 		InitHostname         string
+		Dynamic              bool
 	}{
 		KubernetesDir:        filepath.Dir(deployScript),
 		ManifestDeployScript: deployScript,
 		InitHostname:         initHostname,
+		Dynamic:              dynamic,
 	}
 
 	data, err := template.Parse(k8sResourcesUnitName, k8sResourceUnitTpl, &values)

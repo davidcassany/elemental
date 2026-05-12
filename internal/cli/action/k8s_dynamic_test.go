@@ -268,3 +268,312 @@ var _ = Describe("writeK8sDynamicDeployScript", Label("k8s-dynamic", "deploy-scr
 		Expect(script).To(MatchRegexp(`(?s)sh "/opt/k8s/install/install\.sh".*systemctl enable --now rke2-\$\{NODETYPE\}\.service`))
 	})
 })
+
+var _ = Describe("k8s dynamic status", Label("k8s-dynamic", "status"), func() {
+	var (
+		system  *sys.System
+		cleanup func()
+	)
+
+	BeforeEach(func() {
+		fs, c, err := sysmock.TestFS(nil)
+		Expect(err).NotTo(HaveOccurred())
+		cleanup = c
+
+		system, err = sys.NewSystem(
+			sys.WithFS(fs),
+			sys.WithLogger(log.New(log.WithDiscardAll())),
+		)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		cleanup()
+	})
+
+	It("writes sanitized persistent status without raw Helm values", func() {
+		status := k8sDynamicStatus{
+			UserData: userDataStatus{Provider: "aws", Fetched: true},
+			SSH:      applyStatus{Applied: true},
+			RKE2:     applyStatus{Applied: true},
+			Helm: helmStatus{
+				OverridesApplied: false,
+				Error:            "unknown runtime Helm value override: certmanager",
+				KnownCharts:      []string{"cert-manager", "rancher"},
+			},
+			Resources: resourcesStatus{DeployResources: false},
+		}
+
+		Expect(writeK8sDynamicStatus(system, status)).To(Succeed())
+
+		content, err := system.FS().ReadFile(k8sDynamicStatusPath)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(content)).To(ContainSubstring("provider: aws"))
+		Expect(string(content)).To(ContainSubstring("overridesApplied: false"))
+		Expect(string(content)).To(ContainSubstring("knownCharts:"))
+		Expect(string(content)).To(ContainSubstring("deployResources: false"))
+		Expect(string(content)).NotTo(ContainSubstring("super-secret"))
+		Expect(string(content)).NotTo(ContainSubstring("valuesContent"))
+	})
+})
+
+var _ = Describe("applyRuntimeHelmOverrides", Label("k8s-dynamic", "helm"), func() {
+	var (
+		system  *sys.System
+		cleanup func()
+	)
+
+	BeforeEach(func() {
+		fs, c, err := sysmock.TestFS(nil)
+		Expect(err).NotTo(HaveOccurred())
+		cleanup = c
+
+		system, err = sys.NewSystem(
+			sys.WithFS(fs),
+			sys.WithLogger(log.New(log.WithDiscardAll())),
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(vfs.MkdirAll(system.FS(), "/var/lib/elemental/kubernetes/helm", vfs.DirPerm)).To(Succeed())
+		Expect(system.FS().WriteFile("/var/lib/elemental/kubernetes/helm/rancher.yaml", []byte(`apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: rancher
+  namespace: kube-system
+spec:
+  chart: rancher
+  version: 2.10.0
+  repo: https://charts.rancher.io
+  targetNamespace: cattle-system
+  valuesContent: |
+    hostname: old.example.com
+    replicas: 1
+    ingress:
+      tls:
+        source: secret
+        enabled: false
+    extraArgs:
+    - a
+`), 0o644)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		cleanup()
+	})
+
+	It("recursively merges runtime values into existing HelmChart valuesContent", func() {
+		ud := &userdata.UserData{
+			Data: map[string]any{
+				"helm": map[string]any{
+					"values": map[string]any{
+						"rancher": map[string]any{
+							"hostname": "new.example.com",
+							"ingress": map[string]any{
+								"tls": map[string]any{
+									"enabled": true,
+								},
+							},
+							"extraArgs": []any{"b", "c"},
+						},
+					},
+				},
+			},
+			Provider: "test",
+		}
+
+		result, err := applyRuntimeHelmOverrides(system, "/var/lib/elemental/kubernetes", ud)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Applied).To(BeTrue())
+		Expect(result.KnownCharts).To(Equal([]string{"rancher"}))
+
+		content, err := system.FS().ReadFile("/var/lib/elemental/kubernetes/helm/rancher.yaml")
+		Expect(err).NotTo(HaveOccurred())
+		chart := string(content)
+		Expect(chart).To(ContainSubstring("hostname: new.example.com"))
+		Expect(chart).To(ContainSubstring("replicas: 1"))
+		Expect(chart).To(ContainSubstring("source: secret"))
+		Expect(chart).To(ContainSubstring("enabled: true"))
+		Expect(chart).To(ContainSubstring("- b"))
+		Expect(chart).To(ContainSubstring("- c"))
+		Expect(chart).NotTo(ContainSubstring("- a"))
+	})
+
+	It("reports unknown chart names without writing raw override values", func() {
+		ud := &userdata.UserData{
+			Data: map[string]any{
+				"helm": map[string]any{
+					"values": map[string]any{
+						"certmanager": map[string]any{
+							"password": "super-secret",
+						},
+					},
+				},
+			},
+			Provider: "test",
+		}
+
+		result, err := applyRuntimeHelmOverrides(system, "/var/lib/elemental/kubernetes", ud)
+		Expect(err).To(MatchError("unknown runtime Helm value override: certmanager"))
+		Expect(result.Applied).To(BeFalse())
+		Expect(result.KnownCharts).To(Equal([]string{"rancher"}))
+		Expect(err.Error()).NotTo(ContainSubstring("super-secret"))
+	})
+
+	It("rejects a chart override root that is not a map", func() {
+		ud := &userdata.UserData{
+			Data: map[string]any{
+				"helm": map[string]any{
+					"values": map[string]any{
+						"rancher": "new.example.com",
+					},
+				},
+			},
+			Provider: "test",
+		}
+
+		result, err := applyRuntimeHelmOverrides(system, "/var/lib/elemental/kubernetes", ud)
+		Expect(err).To(MatchError("runtime Helm value override for chart rancher must be a map"))
+		Expect(result.Applied).To(BeFalse())
+		Expect(result.KnownCharts).To(Equal([]string{"rancher"}))
+	})
+
+	It("allows SSH setup to complete before returning a recoverable Helm error", func() {
+		ud := &userdata.UserData{
+			Data: map[string]any{
+				"users": []any{
+					map[string]any{
+						"name": "root",
+						"ssh_authorized_keys": []any{
+							"ssh-ed25519 recovery-key",
+						},
+					},
+				},
+				"helm": map[string]any{
+					"values": map[string]any{
+						"missing": map[string]any{
+							"token": "super-secret",
+						},
+					},
+				},
+			},
+			Provider: "test",
+		}
+
+		status, err := applyDynamicConfigurationFromUserData(system, "/var/lib/elemental/kubernetes", ud)
+		Expect(err).To(MatchError("unknown runtime Helm value override: missing"))
+
+		keys, keyErr := system.FS().ReadFile("/root/.ssh/authorized_keys")
+		Expect(keyErr).NotTo(HaveOccurred())
+		Expect(string(keys)).To(ContainSubstring("ssh-ed25519 recovery-key"))
+		Expect(status.SSH.Applied).To(BeTrue())
+		Expect(status.Helm.OverridesApplied).To(BeFalse())
+		Expect(status.Helm.Error).To(Equal("unknown runtime Helm value override: missing"))
+		Expect(status.Helm.Error).NotTo(ContainSubstring("super-secret"))
+
+		content, readErr := system.FS().ReadFile(k8sDynamicStatusPath)
+		Expect(readErr).NotTo(HaveOccurred())
+		Expect(string(content)).To(ContainSubstring("unknown runtime Helm value override: missing"))
+		Expect(string(content)).NotTo(ContainSubstring("super-secret"))
+	})
+
+	It("does not allow runtime values to change chart identity fields", func() {
+		ud := &userdata.UserData{
+			Data: map[string]any{
+				"helm": map[string]any{
+					"values": map[string]any{
+						"rancher": map[string]any{
+							"chart":   "different-chart",
+							"repo":    "https://evil.example.com",
+							"version": "0.0.1",
+						},
+					},
+				},
+			},
+			Provider: "test",
+		}
+
+		_, err := applyRuntimeHelmOverrides(system, "/var/lib/elemental/kubernetes", ud)
+		Expect(err).NotTo(HaveOccurred())
+
+		content, err := system.FS().ReadFile("/var/lib/elemental/kubernetes/helm/rancher.yaml")
+		Expect(err).NotTo(HaveOccurred())
+		chart := string(content)
+		Expect(chart).To(ContainSubstring("chart: rancher"))
+		Expect(chart).To(ContainSubstring("version: 2.10.0"))
+		Expect(chart).To(ContainSubstring("repo: https://charts.rancher.io"))
+		Expect(chart).To(ContainSubstring("valuesContent:"))
+		Expect(chart).To(ContainSubstring("chart: different-chart"))
+		Expect(chart).To(ContainSubstring("repo: https://evil.example.com"))
+		Expect(chart).To(ContainSubstring("version: 0.0.1"))
+	})
+})
+
+var _ = Describe("writeResourceDeployMarkerFromUserData", Label("k8s-dynamic", "resources"), func() {
+	var (
+		system  *sys.System
+		cleanup func()
+	)
+
+	BeforeEach(func() {
+		fs, c, err := sysmock.TestFS(nil)
+		Expect(err).NotTo(HaveOccurred())
+		cleanup = c
+
+		system, err = sys.NewSystem(
+			sys.WithFS(fs),
+			sys.WithLogger(log.New(log.WithDiscardAll())),
+		)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		cleanup()
+	})
+
+	It("defaults omitted deployResources to true and writes marker", func() {
+		status, err := writeResourceDeployMarkerFromUserData(system, &userdata.UserData{Data: map[string]any{}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(status.DeployResources).To(BeTrue())
+		exists, err := vfs.Exists(system.FS(), k8sDynamicDeployResourcesMarkerPath)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(exists).To(BeTrue())
+	})
+
+	It("writes marker when deployResources is true", func() {
+		ud := &userdata.UserData{Data: map[string]any{
+			"elemental": map[string]any{
+				"kubernetes": map[string]any{
+					"deployResources": true,
+				},
+			},
+		}}
+
+		status, err := writeResourceDeployMarkerFromUserData(system, ud)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(status.DeployResources).To(BeTrue())
+		exists, err := vfs.Exists(system.FS(), k8sDynamicDeployResourcesMarkerPath)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(exists).To(BeTrue())
+	})
+
+	It("removes marker when deployResources is false even for an init server", func() {
+		ud := &userdata.UserData{Data: map[string]any{
+			"rke2": map[string]any{
+				"type": "server",
+				"init": true,
+			},
+			"elemental": map[string]any{
+				"kubernetes": map[string]any{
+					"deployResources": false,
+				},
+			},
+		}}
+
+		status, err := writeResourceDeployMarkerFromUserData(system, ud)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(status.DeployResources).To(BeFalse())
+		exists, err := vfs.Exists(system.FS(), k8sDynamicDeployResourcesMarkerPath)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(exists).To(BeFalse())
+	})
+})

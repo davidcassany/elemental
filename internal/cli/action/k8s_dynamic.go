@@ -20,6 +20,7 @@ package action
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -36,7 +37,8 @@ import (
 )
 
 const (
-	k8sConfDeployDynamicScriptName = "k8s_conf_deploy.sh"
+	k8sConfDeployDynamicScriptName      = "k8s_conf_deploy.sh"
+	k8sDynamicDeployResourcesMarkerPath = "/run/elemental/k8s-dynamic-deploy-resources"
 )
 
 // K8sDynamicApply fetches user data and renders Kubernetes config templates.
@@ -78,17 +80,32 @@ func K8sDynamicApply(ctx context.Context, cmd *cli.Command) error {
 
 	s.Logger().Info("User data fetched from provider: %s", userData.Provider)
 
-	// Set hostname from user data (must happen before RKE2 install)
-	if err := writeHostnameFromUserData(s, userData); err != nil {
-		return fmt.Errorf("writing hostname: %w", err)
+	k8sConfigDir := filepath.Join("/", image.KubernetesPath())
+	_, err = applyDynamicConfigurationFromUserData(s, k8sConfigDir, userData)
+	return err
+}
+
+func applyDynamicConfigurationFromUserData(s *sys.System, k8sConfigDir string, userData *userdata.UserData) (k8sDynamicStatus, error) {
+	status := k8sDynamicStatus{
+		UserData:  userDataStatus{Fetched: userData != nil},
+		Helm:      helmStatus{OverridesApplied: true},
+		Resources: resourcesStatus{DeployResources: true},
+	}
+	if userData != nil {
+		status.UserData.Provider = userData.Provider
 	}
 
-	// Find and render all .tpl files in kubernetes config directory
-	// Use absolute path - kubernetes configs are on the system partition, not the config partition
-	k8sConfigDir := filepath.Join("/", image.KubernetesPath())
+	if err := writeHostnameFromUserData(s, userData); err != nil {
+		status.UserData.Error = err.Error()
+		_ = writeK8sDynamicStatus(s, status)
+		return status, fmt.Errorf("writing hostname: %w", err)
+	}
+
 	templatesRendered, err := renderK8sTemplates(s, k8sConfigDir, userData)
 	if err != nil {
-		return fmt.Errorf("rendering kubernetes templates: %w", err)
+		status.UserData.Error = err.Error()
+		_ = writeK8sDynamicStatus(s, status)
+		return status, fmt.Errorf("rendering kubernetes templates: %w", err)
 	}
 
 	if templatesRendered == 0 {
@@ -99,20 +116,53 @@ func K8sDynamicApply(ctx context.Context, cmd *cli.Command) error {
 
 	// Generate RKE2 config from user data
 	if err := writeRKE2ConfigFromUserData(s, k8sConfigDir, userData); err != nil {
-		return fmt.Errorf("writing RKE2 config: %w", err)
+		status.RKE2.Error = err.Error()
+		_ = writeK8sDynamicStatus(s, status)
+		return status, fmt.Errorf("writing RKE2 config: %w", err)
 	}
+	status.RKE2.Applied = true
 
 	// Generate deployment script with node type from user data
 	if err := writeK8sDynamicDeployScript(s, k8sConfigDir, userData); err != nil {
-		return fmt.Errorf("writing dynamic deployment script: %w", err)
+		status.RKE2.Error = err.Error()
+		_ = writeK8sDynamicStatus(s, status)
+		return status, fmt.Errorf("writing dynamic deployment script: %w", err)
 	}
 
 	// Write SSH authorized keys from user data
 	if err := writeSSHKeysFromUserData(s, userData); err != nil {
-		return fmt.Errorf("writing SSH keys: %w", err)
+		status.SSH.Error = err.Error()
+		_ = writeK8sDynamicStatus(s, status)
+		return status, fmt.Errorf("writing SSH keys: %w", err)
+	}
+	status.SSH.Applied = true
+
+	resources, err := writeResourceDeployMarkerFromUserData(s, userData)
+	status.Resources = resources
+	if err != nil {
+		status.Resources.Error = err.Error()
+		_ = writeK8sDynamicStatus(s, status)
+		return status, err
 	}
 
-	return nil
+	helmResult, helmErr := applyRuntimeHelmOverrides(s, k8sConfigDir, userData)
+	status.Helm = helmStatus{
+		OverridesApplied: helmErr == nil && helmResult.Applied,
+		KnownCharts:      helmResult.KnownCharts,
+	}
+	if helmErr != nil {
+		status.Helm.Error = helmErr.Error()
+	}
+
+	if statusErr := writeK8sDynamicStatus(s, status); statusErr != nil {
+		return status, statusErr
+	}
+
+	if helmErr != nil {
+		return status, helmErr
+	}
+
+	return status, nil
 }
 
 // writeRKE2ConfigFromUserData generates RKE2 config YAML from user data.
@@ -346,6 +396,52 @@ func writeK8sDynamicDeployScript(s *sys.System, k8sConfigDir string, userData *u
 	s.Logger().Info("Deployment script written to %s", scriptPath)
 
 	return nil
+}
+
+func writeResourceDeployMarkerFromUserData(s *sys.System, userData *userdata.UserData) (resourcesStatus, error) {
+	deployResources := deployResourcesFromUserData(userData)
+
+	if err := vfs.MkdirAll(s.FS(), filepath.Dir(k8sDynamicDeployResourcesMarkerPath), vfs.DirPerm); err != nil {
+		return resourcesStatus{DeployResources: deployResources}, fmt.Errorf("creating dynamic marker directory: %w", err)
+	}
+
+	if !deployResources {
+		if err := s.FS().Remove(k8sDynamicDeployResourcesMarkerPath); err != nil && !os.IsNotExist(err) {
+			return resourcesStatus{DeployResources: false}, fmt.Errorf("removing resource deployment marker: %w", err)
+		}
+		s.Logger().Info("Dynamic Kubernetes resource deployment disabled by user data")
+		return resourcesStatus{DeployResources: false}, nil
+	}
+
+	if err := s.FS().WriteFile(k8sDynamicDeployResourcesMarkerPath, []byte("enabled\n"), 0o644); err != nil {
+		return resourcesStatus{DeployResources: true}, fmt.Errorf("writing resource deployment marker: %w", err)
+	}
+
+	s.Logger().Info("Dynamic Kubernetes resource deployment enabled by user data")
+	return resourcesStatus{DeployResources: true}, nil
+}
+
+func deployResourcesFromUserData(userData *userdata.UserData) bool {
+	if userData == nil || userData.Data == nil {
+		return true
+	}
+
+	elementalData, ok := userData.Data["elemental"].(map[string]any)
+	if !ok {
+		return true
+	}
+
+	kubernetesData, ok := elementalData["kubernetes"].(map[string]any)
+	if !ok {
+		return true
+	}
+
+	deployResources, ok := kubernetesData["deployResources"].(bool)
+	if !ok {
+		return true
+	}
+
+	return deployResources
 }
 
 // writeHostnameFromUserData sets the system hostname from user data.

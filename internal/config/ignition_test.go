@@ -138,6 +138,38 @@ passwd:
 		Expect(ignition).To(ContainSubstring("/var/lib/elemental/kubernetes/registries.yaml"))
 	})
 
+	It("Configures dynamic kubernetes resources via deploy marker instead of host condition", func() {
+		conf := &image.Configuration{}
+		conf.UserData.Enabled = true
+		ignitionFile := filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath())
+
+		k8sScript := "/var/lib/elemental/kubernetes/k8s_res_deploy.sh"
+		k8sConfScript := "/var/lib/elemental/kubernetes/k8s_conf_deploy.sh"
+
+		Expect(m.configureIgnition(conf, output, k8sScript, k8sConfScript, nil)).To(Succeed())
+		ignition, err := system.FS().ReadFile(ignitionFile)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(ignition)).To(ContainSubstring("Kubernetes Resources Installer"))
+		Expect(string(ignition)).To(ContainSubstring("After=k8s-config-installer.service\\nConditionPathExists=/run/elemental/k8s-dynamic-deploy-resources"))
+		Expect(string(ignition)).To(ContainSubstring("ConditionPathExists=/run/elemental/k8s-dynamic-deploy-resources"))
+		Expect(string(ignition)).NotTo(ContainSubstring("ConditionHost=*"))
+	})
+
+	It("Keeps static kubernetes resources on init host only when user data is disabled", func() {
+		conf := &image.Configuration{}
+		ignitionFile := filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath())
+
+		k8sScript := "/var/lib/elemental/kubernetes/k8s_res_deploy.sh"
+		k8sConfScript := "/var/lib/elemental/kubernetes/k8s_conf_deploy.sh"
+
+		Expect(m.configureIgnition(conf, output, k8sScript, k8sConfScript, nil)).To(Succeed())
+		ignition, err := system.FS().ReadFile(ignitionFile)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(ignition)).To(ContainSubstring("After=k8s-config-installer.service\\nConditionHost=*"))
+		Expect(string(ignition)).To(ContainSubstring("ConditionHost=*"))
+		Expect(string(ignition)).NotTo(ContainSubstring("ConditionPathExists=/run/elemental/k8s-dynamic-deploy-resources"))
+	})
+
 	It("Writes systemd extension via Ignition", func() {
 		conf := &image.Configuration{}
 		ext := []api.SystemdExtension{{Name: "ext1", Image: "ext1-image"}}
