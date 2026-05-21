@@ -567,7 +567,7 @@ func (i Media) prepareOSRoot(sourceOS *deployment.ImageSource, rootDir string) e
 		return fmt.Errorf("OS source write failed: %w", err)
 	}
 
-	err = selinux.Relabel(i.ctx, i.s, rootDir)
+	err = selinux.SystemRelabel(i.ctx, i.s, rootDir)
 	if err != nil {
 		i.s.Logger().Warn("Error selinux relabelling: %s", err.Error())
 	}
