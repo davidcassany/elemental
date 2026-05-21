@@ -75,13 +75,23 @@ var _ = Describe("Selinux", Label("selinux"), func() {
 	AfterEach(func() {
 		cleanup()
 	})
-	It("relabels the given path for the targeted context, including rw paths", func() {
+	It("relabels the given path for the targeted context, no rw path so no .autorelabel", func() {
+		Expect(fs.WriteFile(contextFile, []byte{}, vfs.FilePerm)).To(Succeed())
+		Expect(selinux.SystemRelabel(context.Background(), s, root)).To(Succeed())
+		Expect(runner.CmdsMatch([][]string{{
+			"setfiles", "-i", "-r", "/some/root", "-F",
+			"/some/root/etc/selinux/targeted/contexts/files/file_contexts", "/some/root",
+		}})).To(Succeed())
+		Expect(vfs.Exists(s.FS(), filepath.Join(root, "/etc/selinux/.autorelabel"))).To(BeFalse())
+	})
+	It("relabels the given path for the targeted context, including rw paths set .autorelabel file", func() {
 		Expect(fs.WriteFile(contextFile, []byte{}, vfs.FilePerm)).To(Succeed())
 		Expect(selinux.SystemRelabel(context.Background(), s, root, root+"/etc")).To(Succeed())
 		Expect(runner.CmdsMatch([][]string{{
 			"setfiles", "-i", "-r", "/some/root", "-F", "-e", "/some/root/etc",
 			"/some/root/etc/selinux/targeted/contexts/files/file_contexts", "/some/root",
 		}})).To(Succeed())
+		Expect(vfs.Exists(s.FS(), filepath.Join(root, "/etc/selinux/.autorelabel"))).To(BeTrue())
 	})
 	It("does nothing if the context is not found", func() {
 		Expect(selinux.SystemRelabel(context.Background(), s, root)).To(Succeed())

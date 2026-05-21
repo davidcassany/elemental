@@ -20,6 +20,7 @@ package selinux
 import (
 	"container/ring"
 	"context"
+	"fmt"
 	"path/filepath"
 
 	"github.com/suse/elemental/v3/pkg/chroot"
@@ -31,19 +32,22 @@ const (
 	SelinuxTargetedContextFile = selinuxTargetedPath + "/contexts/files/file_contexts"
 
 	selinuxTargetedPath = "/etc/selinux/targeted"
+	selinuxAutoRelabel  = "/etc/selinux/.autorelabel"
 	debugLines          = 10
 )
 
 // SystemRelabel applies the SE Linux labels based on the targeted policy found within the given
 // root path. It force applies the labels under the given root except for the given RW paths
 // This is to prevent runtime changes during the upgrades as RW paths are potentially in use for current
-// processes.
+// processes. If at least one rwPath was provided it also sets the .autorelabel file to trigger
+// relabelling at boot and relabel the excluded paths.
 func SystemRelabel(ctx context.Context, s *sys.System, rootDir string, rwPaths ...string) error {
 	contextFile := filepath.Join(rootDir, SelinuxTargetedContextFile)
 	contextExists, _ := vfs.Exists(s.FS(), contextFile)
 
 	if contextExists {
 		var err error
+
 		args := []string{"-i"}
 
 		// We only keep last 10 lines of the stdout and stderr for debugging purposes
@@ -60,6 +64,10 @@ func SystemRelabel(ctx context.Context, s *sys.System, rootDir string, rwPaths .
 		if len(rwPaths) > 0 {
 			for _, rwp := range rwPaths {
 				args = append(args, "-e", rwp)
+			}
+			err = s.FS().WriteFile(filepath.Join(rootDir, selinuxAutoRelabel), []byte{}, vfs.FilePerm)
+			if err != nil {
+				return fmt.Errorf("creating .autorelabel file: %w", err)
 			}
 		}
 		args = append(args, contextFile, rootDir)
@@ -79,7 +87,11 @@ func SystemRelabel(ctx context.Context, s *sys.System, rootDir string, rwPaths .
 // root path. Runs the same logic as RelabelSystem method but running inside a chroot environment.
 func ChrootedSystemRelabel(ctx context.Context, s *sys.System, rootDir string, rwPaths ...string) error {
 	callback := func() error { return SystemRelabel(ctx, s, "/", rwPaths...) }
-	return chroot.ChrootedCallback(s, rootDir, nil, callback, chroot.WithoutDefaultBinds())
+	err := chroot.ChrootedCallback(s, rootDir, nil, callback, chroot.WithoutDefaultBinds())
+	if err != nil {
+		return fmt.Errorf("chrooted system relabel: %w", err)
+	}
+	return nil
 }
 
 func stdHander(r *ring.Ring) func(string) {
