@@ -20,10 +20,7 @@ package selinux
 import (
 	"container/ring"
 	"context"
-	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/suse/elemental/v3/pkg/chroot"
 	"github.com/suse/elemental/v3/pkg/sys"
@@ -37,69 +34,52 @@ const (
 	debugLines          = 10
 )
 
-// Relabel will relabel the system if it finds the context
-func Relabel(ctx context.Context, s *sys.System, rootDir string, extraPaths ...string) error {
+// SystemRelabel applies the SE Linux labels based on the targeted policy found within the given
+// root path. It force applies the labels under the given root except for the given RW paths
+// This is to prevent runtime changes during the upgrades as RW paths are potentially in use for current
+// processes.
+func SystemRelabel(ctx context.Context, s *sys.System, rootDir string, rwPaths ...string) error {
 	contextFile := filepath.Join(rootDir, SelinuxTargetedContextFile)
 	contextExists, _ := vfs.Exists(s.FS(), contextFile)
 
 	if contextExists {
 		var err error
-		args := []string{"-i", "-F"}
+		args := []string{"-i"}
 
 		// We only keep last 10 lines of the stdout and stderr for debugging purposes
 		stdOut := ring.New(debugLines)
 		stdErr := ring.New(debugLines)
 
 		if rootDir == "/" || rootDir == "" {
-			args = append(args, contextFile, "/")
+			rootDir = "/"
 		} else {
-			args = append(args, "-r", rootDir, contextFile, rootDir)
+			args = append(args, "-r", rootDir)
 		}
-		args = append(args, extraPaths...)
+
+		args = append(args, "-F")
+		if len(rwPaths) > 0 {
+			for _, rwp := range rwPaths {
+				args = append(args, "-e", rwp)
+			}
+		}
+		args = append(args, contextFile, rootDir)
+
+		s.Logger().Info("Applying SE Linux labels to the read-only root tree, forced relabelling")
 		err = s.Runner().RunContextParseOutput(ctx, stdHander(stdOut), stdHander(stdErr), "setfiles", args...)
 		logOutput(s, stdOut, stdErr)
+
 		return err
 	}
 
-	s.Logger().Debug("Not relabelling SELinux, no context found")
+	s.Logger().Warn("Not relabelling SE Linux, no context found")
 	return nil
 }
 
-// ChrootedRelabel relables with setfiles the given root in a chroot env. Additionally after the first
-// chrooted call it runs a non chrooted call to relabel any mountpoint used within the chroot.
-func ChrootedRelabel(ctx context.Context, s *sys.System, rootDir string, bind map[string]string, additionalPaths ...string) (err error) {
-	extraPaths := make([]string, 0, len(additionalPaths)+len(bind))
-	extraPaths = append(extraPaths, additionalPaths...)
-
-	for _, v := range bind {
-		if !canAddForRelabel(v, extraPaths) {
-			return fmt.Errorf("failed adding bind mount path '%s' for relabel: path already exists in or overlaps with existing relabel paths: '%s'", v, extraPaths)
-		}
-		extraPaths = append(extraPaths, v)
-	}
-
-	callback := func() error { return Relabel(ctx, s, "/", extraPaths...) }
-	err = chroot.ChrootedCallback(s, rootDir, bind, callback, chroot.WithoutDefaultBinds())
-	if err != nil {
-		return err
-	}
-
-	contextsFile := filepath.Join(rootDir, SelinuxTargetedContextFile)
-	existsCon, _ := vfs.Exists(s.FS(), contextsFile)
-
-	if existsCon && len(extraPaths) > 0 {
-		stdOut := ring.New(debugLines)
-		stdErr := ring.New(debugLines)
-
-		args := []string{"-i", "-F", "-r", rootDir, contextsFile}
-		for _, path := range extraPaths {
-			args = append(args, filepath.Join(rootDir, path))
-		}
-		err = s.Runner().RunContextParseOutput(ctx, stdHander(stdOut), stdHander(stdErr), "setfiles", args...)
-		logOutput(s, stdOut, stdErr)
-	}
-
-	return err
+// ChrootedSystemRelabel applies the SE Linux labels based on the targeted policy found within the given
+// root path. Runs the same logic as RelabelSystem method but running inside a chroot environment.
+func ChrootedSystemRelabel(ctx context.Context, s *sys.System, rootDir string, rwPaths ...string) error {
+	callback := func() error { return SystemRelabel(ctx, s, "/", rwPaths...) }
+	return chroot.ChrootedCallback(s, rootDir, nil, callback, chroot.WithoutDefaultBinds())
 }
 
 func stdHander(r *ring.Ring) func(string) {
@@ -123,30 +103,5 @@ func logOutput(s *sys.System, stdOut, stdErr *ring.Ring) {
 		}
 	})
 	output += "----------------------\n"
-	s.Logger().Debug("SELinux setfile call stdout: %s", output)
-}
-
-// canAddForRelabel checks whether the provided src can be included
-// to an already existing list of relabel paths.
-//
-// To add src to existingRelabels, src must introduce a path that is
-// not already explicitly, or implicitly defined in existingRelabels.
-//
-// This ensures that src will not accidentally compromise the state of
-// an already defined relabel path.
-func canAddForRelabel(src string, existingRelabels []string) bool {
-	srcPath := filepath.Clean(src)
-	for _, p := range existingRelabels {
-		relabelPath := filepath.Clean(p)
-
-		if srcPath == relabelPath {
-			return false
-		}
-
-		if strings.HasPrefix(srcPath, relabelPath+string(os.PathSeparator)) {
-			return false
-		}
-	}
-
-	return true
+	s.Logger().Debug("SE Linux setfile call stdout: %s", output)
 }

@@ -75,16 +75,16 @@ var _ = Describe("Selinux", Label("selinux"), func() {
 	AfterEach(func() {
 		cleanup()
 	})
-	It("relabels the given paths for the targeted context", func() {
+	It("relabels the given path for the targeted context, including rw paths", func() {
 		Expect(fs.WriteFile(contextFile, []byte{}, vfs.FilePerm)).To(Succeed())
-		Expect(selinux.Relabel(context.Background(), s, root)).To(Succeed())
+		Expect(selinux.SystemRelabel(context.Background(), s, root, root+"/etc")).To(Succeed())
 		Expect(runner.CmdsMatch([][]string{{
-			"setfiles", "-i", "-F", "-r", "/some/root",
+			"setfiles", "-i", "-r", "/some/root", "-F", "-e", "/some/root/etc",
 			"/some/root/etc/selinux/targeted/contexts/files/file_contexts", "/some/root",
 		}})).To(Succeed())
 	})
 	It("does nothing if the context is not found", func() {
-		Expect(selinux.Relabel(context.Background(), s, root)).To(Succeed())
+		Expect(selinux.SystemRelabel(context.Background(), s, root)).To(Succeed())
 		Expect(runner.CmdsMatch([][]string{{}}))
 		Expect(buffer.String()).To(ContainSubstring("no context found"))
 	})
@@ -96,43 +96,23 @@ var _ = Describe("Selinux", Label("selinux"), func() {
 			return []byte{}, nil
 		}
 		Expect(fs.WriteFile(contextFile, []byte{}, vfs.FilePerm)).To(Succeed())
-		Expect(selinux.Relabel(context.Background(), s, root)).NotTo(Succeed())
+		Expect(selinux.SystemRelabel(context.Background(), s, root)).To(MatchError(ContainSubstring("setfiles failed")))
 	})
 	It("relabels the given paths for the targeted context in a chroot env", func() {
 		Expect(fs.WriteFile(selinux.SelinuxTargetedContextFile, []byte{}, vfs.FilePerm)).To(Succeed())
 		Expect(fs.WriteFile(contextFile, []byte{}, vfs.FilePerm)).To(Succeed())
 		Expect(vfs.MkdirAll(fs, "/partition/var", vfs.DirPerm)).To(Succeed())
-		Expect(selinux.ChrootedRelabel(
-			context.Background(), s, root, map[string]string{"/partition/var": "/var"}, "/etc"),
+		Expect(selinux.ChrootedSystemRelabel(
+			context.Background(), s, root, "/etc", "/var"),
 		).To(Succeed())
 		Expect(runner.CmdsMatch([][]string{
-			{"setfiles", "-i", "-F", "/etc/selinux/targeted/contexts/files/file_contexts", "/", "/etc", "/var"},
+			{"setfiles", "-i", "-F", "-e", "/etc", "-e", "/var", "/etc/selinux/targeted/contexts/files/file_contexts", "/"},
 			{"sync"},
-			{"setfiles", "-i", "-F", "-r", "/some/root", "/some/root/etc/selinux/targeted/contexts/files/file_contexts", fmt.Sprintf("%s/etc", root), "/some/root/var"},
 		})).To(Succeed())
 	})
-	It("fails to relabel in a chroot env if chroot mounts fail", func() {
-		Expect(fs.WriteFile(selinux.SelinuxTargetedContextFile, []byte{}, vfs.FilePerm)).To(Succeed())
-		// /partition/var does not exist
-		Expect(selinux.ChrootedRelabel(
-			context.Background(), s, root, map[string]string{"/partition/var": "/var"}),
-		).NotTo(Succeed())
-	})
-	It("fails when bind paths overlap with additional paths", func() {
-		By("failing when paths match exactly")
-		err := selinux.ChrootedRelabel(context.Background(), s, root, map[string]string{"/foo/etc": "/etc"}, "/etc")
-		Expect(err).To(HaveOccurred())
-		Expect(err).To(MatchError("failed adding bind mount path '/etc' for relabel: path already exists in or overlaps with existing relabel paths: '[/etc]'"))
-
-		By("failing when paths overlap")
-		err = selinux.ChrootedRelabel(context.Background(), s, root, map[string]string{"/foo/etc": "/etc/elemental"}, "/etc")
-		Expect(err).To(HaveOccurred())
-		Expect(err).To(MatchError("failed adding bind mount path '/etc/elemental' for relabel: path already exists in or overlaps with existing relabel paths: '[/etc]'"))
-	})
 	It("does nothing if the context is not found in chroot", func() {
-		Expect(vfs.MkdirAll(fs, "/partition/var", vfs.DirPerm)).To(Succeed())
-		Expect(selinux.ChrootedRelabel(
-			context.Background(), s, root, map[string]string{"/partition/var": "/var"}),
+		Expect(selinux.ChrootedSystemRelabel(
+			context.Background(), s, root),
 		).To(Succeed())
 		Expect(runner.CmdsMatch([][]string{{}}))
 		Expect(buffer.String()).To(ContainSubstring("no context found"))

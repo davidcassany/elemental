@@ -147,7 +147,7 @@ func (u Upgrader) Upgrade(d *deployment.Deployment) (err error) {
 		}
 	}
 
-	err = selinux.ChrootedRelabel(u.ctx, u.s, trans.Path, nil, parseAdditionalRelabelPaths(d)...)
+	err = selinux.ChrootedSystemRelabel(u.ctx, u.s, trans.Path, parseAdditionalRelabelPaths(d)...)
 	if err != nil {
 		return fmt.Errorf("relabelling snapshot path '%s': %w", trans.Path, err)
 	}
