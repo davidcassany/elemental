@@ -1,6 +1,6 @@
 module github.com/suse/elemental/v3
 
-go 1.25.6
+go 1.26.3
 
 require (
 	dario.cat/mergo v1.0.2
