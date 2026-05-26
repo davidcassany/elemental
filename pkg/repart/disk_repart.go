@@ -29,7 +29,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/suse/elemental/v3/pkg/block/lsblk"
 	"github.com/suse/elemental/v3/pkg/deployment"
 	"github.com/suse/elemental/v3/pkg/sys"
 	"github.com/suse/elemental/v3/pkg/sys/vfs"
@@ -172,21 +171,12 @@ func notifyKernel(s *sys.System, device string) {
 // repartDisk generates the systemd-repart configuration according to the given disk and runs systemd-repart with the given
 // empty flag.
 func repartDisk(s *sys.System, d *deployment.Disk, empty string) (err error) {
-	lsblkWrapper := lsblk.NewLsDevice(s)
-	sSize, err := lsblkWrapper.GetDeviceSectorSize(d.Device)
-	if err != nil {
-		return err
-	}
-
 	parts := make([]Partition, len(d.Partitions))
 	for i, part := range d.Partitions {
 		parts[i] = Partition{Partition: part}
 	}
 
-	flags := []string{
-		fmt.Sprintf("--empty=%s", empty), fmt.Sprintf("--sector-size=%d", sSize),
-	}
-	return runSystemdRepart(s, d.Device, parts, flags...)
+	return runSystemdRepart(s, d.Device, parts, fmt.Sprintf("--empty=%s", empty))
 }
 
 // runSystemdRepart runs systemd-repart for the given partitions and target device. It appends to the generated command the
