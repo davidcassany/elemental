@@ -43,15 +43,6 @@ const systemdRepartJson = `[
 	{"uuid" : "ddb334a8-48a2-c4de-ddb3-849eb2443e92", "file" : "/tmp/elemental-repart.d/1-system.conf"}
 ]`
 
-const sectorSizeJson = `{
-   "blockdevices": [
-      {
-         "name": "device",
-         "phy-sec": 512
-      }
-   ]
-}`
-
 var _ = Describe("Systemd-repart tests", Label("systemd-repart"), func() {
 	var runner *sysmock.Runner
 	var fs vfs.FS
@@ -74,9 +65,6 @@ var _ = Describe("Systemd-repart tests", Label("systemd-repart"), func() {
 		runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
 			if cmd == "systemd-repart" {
 				return []byte(systemdRepartJson), runner.ReturnError
-			}
-			if cmd == "lsblk" {
-				return []byte(sectorSizeJson), runner.ReturnError
 			}
 			return []byte{}, runner.ReturnError
 		}
@@ -183,7 +171,7 @@ var _ = Describe("Systemd-repart tests", Label("systemd-repart"), func() {
 		Expect(d.Disks[0].Partitions[1].UUID).To(Equal("ddb334a8-48a2-c4de-ddb3-849eb2443e92"))
 		Expect(runner.MatchMilestones([][]string{{
 			"systemd-repart", "--json=pretty", "--definitions=/tmp/elemental-repart.d",
-			"--dry-run=no", "--empty=force", "--sector-size=512", "/dev/device",
+			"--dry-run=no", "--empty=force", "/dev/device",
 		}}))
 	})
 
@@ -205,15 +193,12 @@ var _ = Describe("Systemd-repart tests", Label("systemd-repart"), func() {
 		Expect(repart.ReconcileDevicePartitions(s, d.Disks[0])).To(Succeed())
 		Expect(runner.MatchMilestones([][]string{{
 			"systemd-repart", "--json=pretty", "--definitions=/tmp/elemental-repart.d",
-			"--dry-run=no", "--empty=allow", "--sector-size=512", "/dev/device",
+			"--dry-run=no", "--empty=allow", "/dev/device",
 		}}))
 	})
 
 	It("fails if systemd-repart does not return a valid json", func() {
 		runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
-			if cmd == "lsblk" {
-				return []byte(sectorSizeJson), runner.ReturnError
-			}
 			return []byte{}, runner.ReturnError
 		}
 		d := deployment.DefaultDeployment()
