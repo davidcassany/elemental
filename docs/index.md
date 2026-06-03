@@ -1,37 +1,60 @@
 # Elemental
 
-Elemental is a tool for installing, configuring and updating operating system images from an OCI registry.
+Elemental is an image-based operating system management framework that uses OCI registries to distribute, install, and update Linux systems.
 
-## Features
+It enables complete systems—including the operating system, Kubernetes configuration, and platform components—to be assembled, versioned, deployed, and updated using the same OCI-based workflows that have made containers successful.
 
-*   **Image Management:** Manage and version your OS images.
-*   **Deployment:** Deploy an OS image to bare metal or virtual machines.
-*   **Updates:** Update an existing OS installation from a newer image.
-*   **Extensibility:** Extend the OS installation image with extensions.
+Elemental is designed to support cloud-native infrastructure, edge computing, AI platforms, appliance-style products, and other environments that benefit from image-based operating systems and declarative lifecycle management.
 
-## Elemental binaries
+## Why Elemental?
 
-The elemental project mainly consists of two binaries:
-- `elemental3`
-- `elemental3ctl`
+Traditional infrastructure often relies on post-installation configuration, package management, and manual lifecycle operations.
 
-`elemental3` is a higher-level tool that takes as its input an OCI image containing an ISO artifact, adds payloads
-such as system extensions, Kubernetes definitions, first-boot configs, and generates an ISO or RAW file which can be
-used to boot a VM.
+Elemental takes an image-based approach where complete system definitions are assembled ahead of time, versioned as OCI artifacts, and deployed consistently across environments.
 
-`elemental3ctl` is a lower-level tool that can do various things like installing an OS (packaged as an OCI image) on a
-target system, upgrading such OS from an OCI image, manage kernel modules on a system, unpack an OCI image, build
-an installation media (generally an ISO file) from an OS image (packaged as OCI image), and more.
+This approach provides:
 
-`elemental3ctl` is a runtime management tool that helps deploy an OS image on disk, as well as helps manage such an
-installation by performing upgrades, managing kernel modules, perform factory reset, etc. `elemental3` complements
-it by building and configuring an OS image that could have additional artifacts and
-capabilities, making it a platform to build and deploy cloud-native applications.
+- Reproducible deployments
+- Atomic and predictable upgrades
+- Simplified lifecycle management
+- Reduced configuration drift
+- Consistent operations across environments
+- Versioned and auditable system definitions
 
-## Guides
+## Architecture
 
-* [Using Elemental for the first time](cookbook-first-time-use.md) - First use guide for the "UC" build of Elemental
-* [Building a Linux Image](building-linux-image.md) - for users and/or consumers interested in building Linux images.
+Elemental consists of two primary binaries:
+
+### `elemental3`
+
+`elemental3` is the build-time and solution composition tool.
+
+It is responsible for:
+
+- Building deployable installation media and RAW disks
+- Customizing operating system images
+- Integrating Kubernetes configurations
+- Adding extensions and additional payloads
+- Managing release descriptors
+
+In practice, `elemental3` is used by platform builders and solution teams to assemble complete, deployable systems.
+
+### `elemental3ctl`
+
+`elemental3ctl` is the runtime lifecycle management tool.
+
+It is responsible for:
+
+- Operating system installation and upgrades
+- Recovery and reset operations
+- Kernel module management
+- OCI image deployment
+- Runtime system administration tasks
+
+In practice, `elemental3ctl` runs on target systems and manages their lifecycle throughout deployment and operation.
+
+## Documentation
+* [Using Elemental for the first time](cookbook-first-time-use.md) - First use guide for the Elemental 3 project
 * [Image Customization](image-customization.md) - for users and/or consumers interested in customizing images that are based on a specific release.
 * [Release Manifest Guide](release-manifest.md) - for consumers interested in creating a release manifest for their solution.
 * [Configuration Directory Guide](configuration-directory.md) - for users and/or consumers interested in checking configration options.
