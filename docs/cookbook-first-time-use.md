@@ -1,34 +1,34 @@
-# **Cookbook: Deploying UC For The First Time**
+# **Cookbook: Using Elemental 3 For The First Time**
 
 # **Introduction**
 
-UC is a SLES-based, immutable, image-oriented Kubernetes-native infrastructure stack designed to serve as the common foundation for the next generation of SUSE solutions. Unlike traditional distributions, UC treats the operating system, Kubernetes layer, and management agents as a single atomic unit, bound together by a "release manifest."
+Elemental 3 provides a SLES-based, immutable, image-oriented Kubernetes-native infrastructure stack designed to serve as the common foundation for the next generation of SUSE solutions. Unlike traditional distributions, Elemental treats the operating system, Kubernetes layer, and management agents as a single atomic unit, bound together by a "release manifest."
 
-This architecture allows us to simplify initial deployment and management by ensuring that the entire stack is versioned, validated, and upgraded as a coherent whole. While it provides a solid foundation, UC is built for flexibility; it provides the essential tools to customize and extend the system, enabling SUSE products, partners, and customers to tailor the stack for diverse environments and unique solution requirements.
+This architecture allows us to simplify initial deployment and management by ensuring that the entire stack is versioned, validated, and upgraded as a coherent whole. While it provides a solid foundation, Elemental is built for flexibility; it provides the essential tools to customize and extend the system, enabling SUSE products, partners, and customers to tailor the stack for diverse environments and unique solution requirements.
 
 ## Release Information
 
-UC consists of several components, their comprehensive integration and validation, and effective delivery:
+Elemental 3 consists of several components, their comprehensive integration and validation, and effective delivery:
 
 | Component | Version | Purpose |
-| :---: | :---: | :---: |
-| Elemental | 3.0.0-alpha | Customization and installation of OS \+ Kubernetes |
-| SUSE Linux Enterprise Server | 16.0 | Source for building a containerized OS |
-| RKE2 | 1.34.2 | Certified Kubernetes distribution |
-| MetalLB | 0.15.2 | Load balancing/HA capabilities for multi-node Kubernetes clusters (API and services) |
-| Endpoint Copier Operator | 0.3.0 |  |
+| :---: |:-------:| :---: |
+| Elemental |  3.0.0  | Customization and installation of OS \+ Kubernetes |
+| SUSE Linux Enterprise Server |  16.0   | Source for building a containerized OS |
+| RKE2 | 1.35.5  | Certified Kubernetes distribution |
+| MetalLB | 0.15.2  | Load balancing/HA capabilities for multi-node Kubernetes clusters (API and services) |
+| Endpoint Copier Operator |  0.3.0  |  |
 
 ## Scope and Audience
 
 This “cookbook” describes three different deployment scenarios:
 
-* **Recipe 1:** Deployment of a “single-node” Kubernetes cluster using an example SUSE solution utilizing UC.
+* **Recipe 1:** Deployment of a “single-node” Kubernetes cluster using an example SUSE solution.
 
-* **Recipe 2:** Deployment of a “multi-node” Kubernetes cluster using an example SUSE solution utilizing UC.
+* **Recipe 2:** Deployment of a “multi-node” Kubernetes cluster using an example SUSE solution.
 
-* **Recipe 3:** Deployment of a “single-node” Kubernetes cluster, deployed using [Cluster API](https://cluster-api.sigs.k8s.io/) and using UC as a base.
+* **Recipe 3:** Deployment of a “single-node” Kubernetes cluster, deployed using [Cluster API](https://cluster-api.sigs.k8s.io/).
 
-This is a guide for **anyone** interested in understanding UC, its goals, and the underlying technology.
+This is a guide for **anyone** interested in understanding the project, its goals, and the underlying technology.
 
 ## Prerequisites
 
@@ -38,13 +38,13 @@ This guide will walk you through the full deployment. Ensure that your local wor
 
 There are two different roles for the hosts needed:
 
-* **Customization Host** \-\> Used for creating the UC images.
+* **Customization Host** \-\> Used for creating the bootable images.
 
 * **Hypervisor Host** \-\> Used for provisioning VMs based on the images created above.
 
 These two roles **can** be the same physical host to simplify the scenario.
 
-**NOTE:** UC also supports bare metal provisioning, so the hypervisor host is only necessary for virtualization as recommended in this guide; it’s perfectly possible to use a bare metal system, laptop, or other equipment (e.g., Raspberry Pi) to boot your resulting images.
+**NOTE:** Elemental 3 also supports bare metal provisioning, so the hypervisor host is only necessary for virtualization as recommended in this guide; it’s perfectly possible to use a bare metal system, laptop, or other equipment (e.g., Raspberry Pi) to boot your resulting images.
 
 The requirements will vary depending on whether the machine used for customizing artifacts is the same one that is also going to be used for provisioning virtual machines. If that is the case, multiply the requirements below by the target number of Kubernetes nodes to be deployed.
 
@@ -55,7 +55,7 @@ The requirements will vary depending on whether the machine used for customizing
 * **Disk Space:**
   * RAW disk: 50 GB for writing a 35 GB RAW disk
   * ISO media: 10 GB for writing a \~1 GB ISO
-* **Internet Access** for downloading customization artifacts. Offline / air-gapped capabilities are planned for the future (UC 0.6+).
+* **Internet Access** for downloading customization artifacts. Offline / air-gapped capabilities are planned for the future (Elemental 3.1+).
 
 #### Hypervisor Host
 
@@ -87,9 +87,9 @@ There are a few requirements for the host(s) acting as the entrypoint for custom
 
 # Key Concepts
 
-UC is an initiative to build a tightly integrated and fully tested stack of core components. It serves as the base layer for SUSE solutions that use RKE2.
+Elemental 3 is an initiative to build a tightly integrated and fully tested stack of core components. It serves as the base layer for SUSE solutions that use RKE2.
 
-In contrast with traditional stacks where updates are managed as individual upgrades across layers, UC handles all updates top-down, from the container to the OS. This process is designed to be reproducible and predictable.
+In contrast with traditional stacks where updates are managed as individual upgrades across layers, Elemental handles all updates top-down, from the container to the OS. This process is designed to be reproducible and predictable.
 
 ## Components
 
@@ -97,32 +97,32 @@ In contrast with traditional stacks where updates are managed as individual upgr
 
 ### Operating System
 
-The operating system used by UC is designed to be an evolution of the work pioneered with Rancher OS Management. **It is built, maintained and delivered in a container image** (OCI) format using SLES 16.0 as its source and foundation.
+The operating system used by Elemental 3 is designed to be an evolution of the work pioneered with Rancher OS Management (based on Elemental 2). **It is built, maintained and delivered in a container image** (OCI) format using SLES 16.0 as its source and foundation.
 
-The design is specifically tailored to container management scenarios, regardless of whether that involves Kubernetes orchestration or is subject to constrained environments where Podman is the only available tool. This involves immutability, security hardening, and minimalist footprint.
+The design is specifically tailored to container management scenarios, regardless of whether that involves Kubernetes orchestration or is subject to constrained environments where Podman is the only available tool. This involves immutability, security hardening, and minimalist footprint.
 
 The operating system does not include a standard package manager (e.g., zypper). Installation and updates use container-native workflows rather than standard system management processes. This keeps the system immutable, prevents tampering, and allows for seamless, atomic updates that favor repeatability.
 
 ### Kubernetes
 
-Kubernetes is widely used today, and its popularity continues to grow. **UC bundles RKE2 as an enterprise-ready Kubernetes distribution**. It inherits the benefits of K3s and provides additional hardening, compliance, and advanced networking capabilities. As part of UC, it is delivered as a [*systemd extension*](https://www.freedesktop.org/software/systemd/man/latest/systemd-sysext.html), but can be customized like any normal RKE2 installation.
+Kubernetes is widely used today, and its popularity continues to grow. **Elemental 3 utilizes RKE2 as an enterprise-ready Kubernetes distribution**. It inherits the benefits of K3s and provides additional hardening, compliance, and advanced networking capabilities. As part of Elemental, it is delivered as a tarball following the standard upstream practices, and can be customized like any normal RKE2 installation.
 
 ### Load Balancing & High Availability
 
-UC uses MetalLB and Endpoint Copier Operator to provide reliable load balancing for the Kubernetes API. This allows Kubernetes nodes **to form a cluster** **in a secure and automated manner.** API functionality is maintained during node outages or lifecycle operations.
+The project uses MetalLB and Endpoint Copier Operator to provide reliable load balancing for the Kubernetes API. This allows Kubernetes nodes **to form a cluster** **in a secure and automated manner.** API functionality is maintained during node outages or lifecycle operations.
 
 ### Elemental 3
 
-UC bootstrapped the development of the next generation of Elemental by adding the innovative approach to converge the operating system and Kubernetes distribution. The tooling provides the following capabilities now, and a lot more are expected in the future:
+The next generation of Elemental was designed as an innovative approach to converge the operating system and Kubernetes distribution. The tooling provides the following capabilities now, and a lot more are expected in the future:
 
 * **Installing and upgrading operating systems.** Building on the success of Elemental 2, Elemental 3 includes and has full control over the installation and upgrade mechanisms for the target systems, ensuring these operations are smooth and fully validated.
 * **Customizing prebuilt artifacts.** Elemental 3 has the capability to consume the operating system being delivered as container images and provide the respective ISO and RAW disk installers, vastly simplifying the deployment experience.
-* **Customizing prebuilt artifacts.** We consider the live installers as a key deliverable built in-house by the UC team. This is where we use the live installers as a source to customize and tailor bootable artifacts for our consumers. The resulting images may embed Kubernetes, advanced network settings, custom scripts and more.
+* **Customizing prebuilt artifacts.** We consider the live installers as a key deliverable built in-house by SUSE. This is where we use the live installers as a source to customize and tailor bootable artifacts for our consumers. The resulting images may embed Kubernetes, advanced network settings, custom scripts and more.
 * **Aligning all of it together.** As you can see, there are a plethora of moving parts and components in the picture. Elemental 3 is the key which allows for a set of components to be pinned and deployed together, covering a wide range of deployment paradigms and scenarios.
 
 ## Validation
 
-Finally, one of the most important aspects of UC is that **it includes comprehensive testing and validation between all components** by default. Every release ensures that various different deployment scenarios have been verified and confirmed to be successful across Kubernetes cluster topology, system architecture, hardware variability and more.
+Finally, one of the most important aspects of Elemental is that **it includes comprehensive testing and validation between all components** by default. Every release ensures that various different deployment scenarios have been verified and confirmed to be successful across Kubernetes cluster topology, system architecture, hardware variability and more.
 
 # Environment Setup
 
@@ -166,7 +166,7 @@ sudo systemctl enable --now libvirtd
 
 ## Clone the Elemental Repository
 
-The [SUSE/Elemental](https://github.com/SUSE/elemental) repository on GitHub serves as the primary location for UC development. It is constantly being updated with the latest examples that will be leveraged in this guide.
+The [SUSE/Elemental](https://github.com/SUSE/elemental) repository on GitHub serves as the primary location for development. It is constantly being updated with the latest examples that will be leveraged in this guide.
 
 Clone the repository to your host system. The examples directory within will be referenced throughout this guide from this point onward.
 
@@ -191,8 +191,6 @@ export ELEMENTAL_IMAGE="registry.suse.com/elemental/elemental:3.0"
 sudo podman pull ${ELEMENTAL_IMAGE}
 ```
 
-If you receive a certificate validation error, make sure to install the SUSE IBS CA certificates first.
-
 # **Customization Process**
 
 ## Example Templates
@@ -211,13 +209,13 @@ single-node
 
 These directories cover the following use cases:
 
-* **“Linux-only”.** This example showcases how to produce a bootable Linux artifact **not** affiliated with Kubernetes deployments at all, demonstrating the base OS capabilities of UC.
+* **“Linux-only”.** This example showcases how to produce a bootable Linux artifact **not** affiliated with Kubernetes deployments at all, demonstrating the base OS capabilities.
 * **Single-node clusters.** This is the foundational example, producing a bootable artifact used for bootstrapping a Kubernetes cluster consisting of a single node.
 * **Multi-node clusters.** Closely resembles the example above, producing a bootable artifact used for bootstrapping a Kubernetes cluster consisting of multiple nodes.
 
 ## Example Overview
 
-Going further, we will explain what an example from the templates above looks like which is going to touch a few key points around what UC allows. The one we will focus on in this section is the single-node cluster, as it forms the basis for the majority of the subsequent recipes.
+Going further, we will explain what an example from the templates above looks like which is going to touch a few key points around what Elemental allows. The one we will focus on in this section is the single-node cluster, as it forms the basis for the majority of the subsequent recipes.
 
 Let’s examine the contents for this example:
 
@@ -253,8 +251,8 @@ This output might be confusing and you might be wondering how to read through it
 * **kubernetes.yaml:** This is where you define the number and type of nodes that will form a Kubernetes cluster, alongside workloads in the form of plain manifests and Helm charts.
 * **kubernetes/**: This subdirectory allows you to provide RKE2 configurations for cluster nodes, Helm chart customization options (such as values files), as well as additional local Kubernetes manifests.
 * **network/**: This subdirectory allows you to provide advanced network settings that can span multiple machines or specialized scripts that are necessary for configuring machines in highly specific use cases.
-* **release.yaml:** This is the “bread and butter” capability that Elemental 3 and UC provide. This is where you are able to specify the version of UC or any solution built on top of it, as well as all the components that will be enabled in the final artifact. The components range from solely RKE2 to specialized operating system extensions or key Kubernetes workloads (e.g. NVIDIA GPU Operator for SUSE AI).
-* **suse-solution-manifest.yaml**: This file serves as an example description, that showcases how any solution can use UC as a base, and add any additional components on top of it. You can learn more about the “release manifest” concept [in the repository documentation.](https://github.com/SUSE/elemental/blob/main/docs/release-manifest.md)
+* **release.yaml:** This is the “bread and butter” capability that Elemental 3 provides. This is where you are able to specify the version of the core framework or any solution built on top of it, as well as all the components that will be enabled in the final artifact. The components range from solely RKE2 to specialized operating system extensions or key Kubernetes workloads (e.g. NVIDIA GPU Operator for SUSE AI).
+* **suse-solution-manifest.yaml**: This file serves as an example description, that showcases how any solution can use the core framework as a base, and add any additional components on top of it. You can learn more about the “release manifest” concept [in the repository documentation.](https://github.com/SUSE/elemental/blob/main/docs/release-manifest.md)
 
 # **Recipe 1: Single-node Kubernetes cluster**
 
@@ -266,7 +264,7 @@ Familiarize yourself with the contents within the `single-node/` example directo
 * RAW disk size set to 35 GB
 * FIPS mode enforced
 * RKE2 enabled
-* MetalLB and Rancher enabled (from UC and example solution releases respectively)
+* MetalLB and Rancher enabled (from the core framework and example solution releases respectively)
 * NeuVector and Local Path Provisioner enabled (as additional Kubernetes workloads)
 
 Feel free to adjust these values as you see fit, e.g. by adding an SSH key or another user, writing a file on the filesystem, adjusting a Rancher Helm chart value or anything else\!
@@ -309,7 +307,7 @@ You’ll use libvirt to create a virtual machine using the built artifact as the
 Feel free to adjust the RAM and vCPUs setting to fit your system. If you need to heavily reduce these, please look into disabling Rancher or other Kubernetes resources.
 
 ```shell
-sudo virt-install --name uc-single-node \
+sudo virt-install --name single-node \
      	            --ram 16000 \
                   --vcpus 10 \
                   --disk path="$(ls -1 ${ELEMENTAL_PATH}/single-node/*.raw)",format=raw \
@@ -343,7 +341,7 @@ crictl ps
 kubectl get pods -A
 ```
 
-**NOTE:** Creating the symlinks and the exports can be done using the current customization capabilities of UC, it is left as an exercise to the reader.
+**NOTE:** Creating the symlinks and the exports can be done using the current customization capabilities of Elemental, it is left as an exercise to the reader.
 
 With this, the first recipe comes to an end\! Let’s move over to the more complex scenarios.
 
@@ -352,11 +350,11 @@ With this, the first recipe comes to an end\! Let’s move over to the more comp
 Optionally, you can remove the virtual machine provisioned for this scenario:
 
 ```shell
-sudo virsh destroy uc-single-node
-sudo virsh undefine uc-single-node --nvram
+sudo virsh destroy single-node
+sudo virsh undefine single-node --nvram
 
 # if you want to destroy both the VM and the raw image:
-sudo virsh undefine uc-single-node --nvram --remove-all-storage
+sudo virsh undefine single-node --nvram --remove-all-storage
 ```
 
 # **Recipe 2: Multi-node Kubernetes cluster**
@@ -371,7 +369,7 @@ Familiarize yourself with the contents within the `multi-node/` example director
 * Network settings for 4 hosts configured
 * RKE2 enabled
 * Multiple nodes (3 servers and 1 agent), and virtual IP address configured
-* MetalLB and Rancher enabled (from UC and example solution releases respectively)
+* MetalLB and Rancher enabled (from the core framework and example solution releases respectively)
 * NeuVector and Local Path Provisioner enabled (as additional Kubernetes workloads)
 
 As always, feel free to adjust these values as you see fit, e.g. by adding an SSH key or another user, writing a file on the filesystem, adjusting a Rancher Helm chart value or anything else\!
@@ -408,7 +406,7 @@ sudo virt-install --name node1.example.com \
              --disk path="${ELEMENTAL_PATH}/multi-node/node1.example.com.raw",format=raw \
              --osinfo detect=on,name=sle-unknown \
              --graphics none \
-		 --noautoconsole \
+		     --noautoconsole \
              --console pty,target_type=serial \
              --network network=default,model=virtio,mac=FE:C4:05:42:8B:AB \
              --virt-type kvm \
@@ -421,7 +419,7 @@ sudo virt-install --name node2.example.com \
              --disk path="${ELEMENTAL_PATH}/multi-node/node2.example.com.raw",format=raw \
              --osinfo detect=on,name=sle-unknown \
              --graphics none \
-		 --noautoconsole \
+		     --noautoconsole \
              --console pty,target_type=serial \
              --network network=default,model=virtio,mac=FE:C4:05:42:8B:AC \
              --virt-type kvm \
@@ -434,7 +432,7 @@ sudo virt-install --name node3.example.com \
              --disk path="${ELEMENTAL_PATH}/multi-node/node3.example.com.raw",format=raw \
              --osinfo detect=on,name=sle-unknown \
              --graphics none \
-		 --noautoconsole \
+		     --noautoconsole \
              --console pty,target_type=serial \
              --network network=default,model=virtio,mac=FE:C4:05:42:8B:AD \
              --virt-type kvm \
@@ -447,7 +445,7 @@ sudo virt-install --name node4.example.com \
              --disk path="${ELEMENTAL_PATH}/multi-node/node4.example.com.raw",format=raw \
              --osinfo detect=on,name=sle-unknown \
              --graphics none \
-		 --noautoconsole \
+		     --noautoconsole \
              --console pty,target_type=serial \
              --network network=default,model=virtio,mac=FE:C4:05:42:8B:AE \
              --virt-type kvm \
@@ -499,7 +497,7 @@ done
 
 As you have seen so far, the examples above always include Kubernetes within the image as well as Ignition configurations, network settings and more. This is, however, not going to work for deployments leveraging [Cluster API](https://cluster-api.sigs.k8s.io/) where many (if not all) of these configurations have to come from the respective Cluster API provider. These providers perform all the bootstrapping and infrastructure provisioning steps.
 
-UC leverages Cluster API Provider for RKE2 (CAPRKE2) as our bootstrap and control plane provider.
+Elemental 3 leverages Cluster API Provider for RKE2 (CAPRKE2) as our bootstrap and control plane provider.
 
 For the infrastructure provider there are various choices, for example [Cluster API Provider Metal3](https://book.metal3.io/capm3/introduction.html) (CAPM3), which is used in the [SUSE Telco Cloud](https://documentation.suse.com/suse-edge/3.4/html/edge/atip.html) solution. Luckily, there is a simplified demo environment4 provided by Telco Cloud that you can use to mock this provider, and use virtual machines even here. A [demo environment setup](https://github.com/suse-edge/metal3-demo) is maintained by the SUSE Telco team.
 
@@ -598,6 +596,6 @@ Then the final piece to the puzzle is the `RKE2ControlPlane` template, where we 
                - "subvol=/@/opt"
 ```
 
-Some of these fields are definitely *magic* but future iterations of UC will allow us to integrate in a much simpler way… so stay tuned!
+Some of these fields are definitely *magic* but future iterations of Elemental 3 will allow us to integrate in a much simpler way… so stay tuned!
 
 This is definitely an advanced use case so don’t hesitate to reach out to us if the above is unclear. We will gladly help you!
