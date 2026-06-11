@@ -219,6 +219,19 @@ func writeRKE2ConfigFromUserData(s *sys.System, k8sConfigDir string, userData *u
 		}
 	}
 
+	// Kubernetes node labels passed to RKE2 at first start.
+	if labels, ok := rke2Data["node-label"].([]any); ok && len(labels) > 0 {
+		var nodeLabels []string
+		for _, label := range labels {
+			if s, ok := label.(string); ok && s != "" {
+				nodeLabels = append(nodeLabels, s)
+			}
+		}
+		if len(nodeLabels) > 0 {
+			rke2Config["node-label"] = nodeLabels
+		}
+	}
+
 	// If no config to generate, skip
 	if len(rke2Config) == 0 {
 		s.Logger().Info("No RKE2 config data in user data - skipping config generation")

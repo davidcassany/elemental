@@ -269,6 +269,55 @@ var _ = Describe("writeK8sDynamicDeployScript", Label("k8s-dynamic", "deploy-scr
 	})
 })
 
+var _ = Describe("writeRKE2ConfigFromUserData", Label("k8s-dynamic", "rke2"), func() {
+	var (
+		system  *sys.System
+		cleanup func()
+	)
+
+	BeforeEach(func() {
+		fs, c, err := sysmock.TestFS(nil)
+		Expect(err).NotTo(HaveOccurred())
+		cleanup = c
+
+		system, err = sys.NewSystem(
+			sys.WithFS(fs),
+			sys.WithLogger(log.New(log.WithDiscardAll())),
+		)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		cleanup()
+	})
+
+	It("writes node-label entries from dynamic user data into generated RKE2 config", func() {
+		ud := &userdata.UserData{
+			Data: map[string]any{
+				"rke2": map[string]any{
+					"type":   "agent",
+					"token":  "test-token",
+					"server": "https://10.0.0.1:9345",
+					"node-label": []any{
+						"rig.dev/agent-pool=mongodb",
+						"rocket-chat.rig.dev/component.mongodb=true",
+					},
+				},
+			},
+			Provider: "test",
+		}
+
+		err := writeRKE2ConfigFromUserData(system, "/var/lib/elemental/kubernetes", ud)
+		Expect(err).NotTo(HaveOccurred())
+
+		content, err := system.FS().ReadFile("/var/lib/elemental/kubernetes/agent.yaml")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(content)).To(ContainSubstring("node-label:"))
+		Expect(string(content)).To(ContainSubstring("- rig.dev/agent-pool=mongodb"))
+		Expect(string(content)).To(ContainSubstring("- rocket-chat.rig.dev/component.mongodb=true"))
+	})
+})
+
 var _ = Describe("k8s dynamic status", Label("k8s-dynamic", "status"), func() {
 	var (
 		system  *sys.System
