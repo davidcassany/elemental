@@ -88,6 +88,7 @@ disks:
         - path: /srv
         - path: /home`
 		expectedISO = "https://registry.foo.bar/base-os-kernel-default-iso:0.0.1"
+		expectedOS  = "registry.foo.bar/base-os:0.0.1"
 	)
 
 	var fs vfs.FS
@@ -126,7 +127,8 @@ disks:
 							Components: core.Components{
 								OperatingSystem: &core.OperatingSystem{
 									Image: core.Image{
-										ISO: expectedISO,
+										Base: expectedOS,
+										ISO:  expectedISO,
 									},
 								},
 							},
@@ -193,6 +195,8 @@ disks:
 		err := customizeRunner.Run(context.Background(), def, output)
 		Expect(err).ToNot(HaveOccurred())
 		defaultCustomizeDeploymentValidation(customizeDeployment, def)
+		Expect(customizeDeployment.SourceOS).NotTo(BeNil())
+		Expect(customizeDeployment.SourceOS.String()).To(Equal("oci://" + expectedOS))
 
 		Expect(customizeDeployment.Disks[0].Device).To(Equal("/dev/sda"))
 		// [{}, {}, nil, ignition, SYSTEM]
@@ -267,6 +271,8 @@ disks:
 		err := customizeRunner.Run(context.Background(), def, output)
 		Expect(err).ToNot(HaveOccurred())
 		defaultCustomizeDeploymentValidation(customizeDeployment, def)
+		Expect(customizeDeployment.SourceOS).NotTo(BeNil())
+		Expect(customizeDeployment.SourceOS.String()).To(Equal("oci://" + expectedOS))
 		Expect(customizeDeployment.Disks[0].Device).To(BeEmpty())
 		Expect(len(customizeDeployment.Disks[0].Partitions)).To(Equal(0))
 	})

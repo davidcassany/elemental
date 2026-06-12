@@ -119,6 +119,8 @@ rke2:
   type: agent
   server: https://192.168.122.100:9345
   token: my-cluster-token
+  node-label:                     # Optional: Kubernetes Node labels passed to RKE2
+    - workload.example.com/app=true
 ```
 
 ## Configuration Fields
@@ -135,6 +137,7 @@ These fields are processed directly by the k8s-dynamic service:
 | `token` | Conditional | - | Cluster token. Required for joining nodes |
 | `server` | Conditional | - | API server URL. Required for joining servers and agents |
 | `tls_san` | No | - | Additional TLS Subject Alternative Names (init server only) |
+| `node-label` | No | - | Kubernetes Node labels passed to RKE2 at first start |
 | `api_vip4` | No | - | API VIP (IPv4) for /etc/hosts entry |
 | `api_vip6` | No | - | API VIP (IPv6) for /etc/hosts entry |
 | `api_host` | No | - | API hostname for /etc/hosts entry |

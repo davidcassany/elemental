@@ -27,6 +27,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/suse/elemental/v3/pkg/bootloader"
 	"github.com/suse/elemental/v3/pkg/deployment"
@@ -107,6 +108,28 @@ var _ = Describe("InstallerMedia", Label("installermedia"), func() {
 			{"mcopy", "-s", "-i", "/some/dir/build/elemental-installer/efi.img", "/some/dir/build/elemental-installer/efi/EFI", "::"},
 			{"xorriso", "-volid", "LIVE", "-padding", "0", "-outdev", "/some/dir/build/installer.iso"},
 		}))
+	})
+	It("preserves source provenance in generated install description when rewriting OS source to squashfs", func() {
+		Expect(vfs.MkdirAll(fs, "/source", vfs.DirPerm)).To(Succeed())
+		Expect(fs.WriteFile("/source/os.raw", []byte("os"), vfs.FilePerm)).To(Succeed())
+		d.SourceOS = deployment.NewRawSrc("/source/os.raw")
+		provenance := deployment.NewOCISrc("registry.example.com/elemental-os:1.2.3")
+		provenance.SetDigest("sha256:osimage")
+		d.SourceOS.SetProvenance(provenance)
+
+		media := installer.NewMedia(context.Background(), s, installer.Disk, installer.WithBootloader(bootloader.NewNone(s)))
+
+		Expect(media.PrepareInstallerFS("/some/dir/live", "/some/dir/work", d)).To(Succeed())
+
+		data, err := fs.ReadFile("/some/dir/live/Install/install.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		written := &deployment.Deployment{}
+		Expect(yaml.Unmarshal(data, written)).To(Succeed())
+		Expect(written.SourceOS).NotTo(BeNil())
+		Expect(written.SourceOS.String()).To(Equal("raw:///run/initramfs/live/LiveOS/squashfs.img"))
+		Expect(written.SourceOS.Provenance()).NotTo(BeNil())
+		Expect(written.SourceOS.Provenance().String()).To(Equal("oci://registry.example.com/elemental-os:1.2.3"))
+		Expect(written.SourceOS.Provenance().GetDigest()).To(Equal("sha256:osimage"))
 	})
 	It("fails to create an ISO without an output directory defined", func() {
 		d.SourceOS = deployment.NewDirSrc("/some/root")

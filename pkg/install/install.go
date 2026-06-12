@@ -134,6 +134,10 @@ func (i Installer) Install(d *deployment.Deployment) (err error) {
 		return fmt.Errorf("installing recovery system: %w", err)
 	}
 
+	if d.SourceOS != nil && d.SourceOS.IsRaw() && d.SourceOS.Provenance() == nil {
+		d.SourceOS.SetProvenance(i.sourceOSProvenance(d.SourceOS))
+	}
+
 	err = i.u.Upgrade(d)
 	if err != nil {
 		return fmt.Errorf("executing transaction: %w", err)
@@ -158,6 +162,10 @@ func (i Installer) Reset(d *deployment.Deployment) (err error) {
 				return fmt.Errorf("creating partition volumes: %w", err)
 			}
 		}
+	}
+
+	if d.SourceOS != nil && d.SourceOS.IsRaw() && d.SourceOS.Provenance() == nil {
+		d.SourceOS.SetProvenance(i.sourceOSProvenance(d.SourceOS))
 	}
 
 	err = i.u.Upgrade(d)
@@ -220,8 +228,33 @@ func (i Installer) installRecoveryPartition(cleanup *cleanstack.CleanStack, d *d
 	if err != nil {
 		return fmt.Errorf("failed preparing recovery partition root: %w", err)
 	}
-	d.SourceOS = deployment.NewRawSrc(filepath.Join(mountPoint, installer.SquashfsRelPath))
+	sourceOS := deployment.NewRawSrc(filepath.Join(mountPoint, installer.SquashfsRelPath))
+	sourceOS.SetProvenance(i.sourceOSProvenance(d.SourceOS))
+	d.SourceOS = sourceOS
 	return nil
+}
+
+func (i Installer) sourceOSProvenance(sourceOS *deployment.ImageSource) *deployment.ImageSource {
+	switch {
+	case sourceOS == nil:
+	case sourceOS.IsOCI():
+		return sourceOS
+	case sourceOS.Provenance() != nil:
+		return sourceOS.Provenance()
+	}
+
+	current, err := deployment.Parse(i.s, "/")
+	if err != nil || current == nil || current.SourceOS == nil {
+		return nil
+	}
+	switch {
+	case current.SourceOS.IsOCI():
+		return current.SourceOS
+	case current.SourceOS.Provenance() != nil:
+		return current.SourceOS.Provenance()
+	default:
+		return nil
+	}
 }
 
 func createPartitionVolumes(s *sys.System, cleanStack *cleanstack.CleanStack, part *deployment.Partition) (err error) {

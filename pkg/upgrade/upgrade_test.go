@@ -101,6 +101,22 @@ var _ = Describe("Upgrade", Label("upgrade"), func() {
 			{"/etc/elemental/config.sh"},
 		}))
 	})
+	It("preserves source provenance in the written deployment metadata", func() {
+		d.SourceOS = deployment.NewRawSrc("/run/initramfs/squashfs.img")
+		provenance := deployment.NewOCISrc("registry.example.com/elemental-os:1.2.3")
+		provenance.SetDigest("sha256:osimage")
+		d.SourceOS.SetProvenance(provenance)
+
+		Expect(u.Upgrade(d)).To(Succeed())
+
+		written, err := deployment.Parse(s, trans.Path)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(written.SourceOS.IsRaw()).To(BeTrue())
+		Expect(written.SourceOS.Provenance()).NotTo(BeNil())
+		Expect(written.SourceOS.Provenance().IsOCI()).To(BeTrue())
+		Expect(written.SourceOS.Provenance().String()).To(Equal("oci://registry.example.com/elemental-os:1.2.3"))
+		Expect(written.SourceOS.Provenance().GetDigest()).To(Equal("sha256:osimage"))
+	})
 	It("fails on transaction initialization", func() {
 		t.InitErr = fmt.Errorf("init failed")
 		err := u.Upgrade(d)

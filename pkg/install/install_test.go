@@ -104,10 +104,16 @@ const lsblkJson = `{
  }`
 
 type upgraderMock struct {
-	Error error
+	Error      error
+	SourceOS   *deployment.ImageSource
+	Provenance *deployment.ImageSource
 }
 
-func (u upgraderMock) Upgrade(_ *deployment.Deployment) error {
+func (u *upgraderMock) Upgrade(d *deployment.Deployment) error {
+	u.SourceOS = d.SourceOS
+	if d.SourceOS != nil {
+		u.Provenance = d.SourceOS.Provenance()
+	}
 	return u.Error
 }
 
@@ -129,9 +135,11 @@ var _ = Describe("Install", Label("install"), func() {
 		sideEffects = map[string]func(...string) ([]byte, error){}
 
 		fs, cleanup, err = sysmock.TestFS(map[string]any{
-			"/dev/device":  []byte{},
-			"/dev/device1": []byte{},
-			"/dev/device2": []byte{},
+			"/dev/device":       []byte{},
+			"/dev/device1":      []byte{},
+			"/dev/device2":      []byte{},
+			"/source/os.raw":    []byte("os"),
+			"/some/dir/content": []byte{},
 		})
 		Expect(err).ToNot(HaveOccurred())
 		s, err = sys.NewSystem(
@@ -175,6 +183,24 @@ var _ = Describe("Install", Label("install"), func() {
 			{"btrfs", "subvolume", "create"},
 			{"mksquashfs"},
 		}))
+	})
+	It("preserves OCI source provenance when installing from a generated raw recovery image", func() {
+		deployment.WithRecoveryPartition(0)(d)
+		d.SourceOS = deployment.NewRawSrc("/source/os.raw")
+		current := deployment.DefaultDeployment()
+		current.SourceOS = deployment.NewOCISrc("registry.example.com/elemental-os:1.2.3")
+		current.SourceOS.SetDigest("sha256:osimage")
+		Expect(current.WriteDeploymentFile(s, "/")).To(Succeed())
+
+		Expect(i.Install(d)).To(Succeed())
+
+		Expect(upgrader.SourceOS).NotTo(BeNil())
+		Expect(upgrader.SourceOS.IsRaw()).To(BeTrue())
+		Expect(upgrader.SourceOS.String()).To(HavePrefix("raw://"))
+		Expect(upgrader.Provenance).NotTo(BeNil())
+		Expect(upgrader.Provenance.IsOCI()).To(BeTrue())
+		Expect(upgrader.Provenance.String()).To(Equal("oci://registry.example.com/elemental-os:1.2.3"))
+		Expect(upgrader.Provenance.GetDigest()).To(Equal("sha256:osimage"))
 	})
 	It("fails if lsblk can't get target device data", func() {
 		sideEffects["lsblk"] = func(args ...string) ([]byte, error) {
@@ -228,5 +254,23 @@ var _ = Describe("Install", Label("install"), func() {
 			{"systemd-repart"},
 			{"btrfs", "subvolume", "create"},
 		}))
+	})
+	It("preserves live OCI source provenance when resetting from a raw source", func() {
+		deployment.WithRecoveryPartition(0)(d)
+		d.SourceOS = deployment.NewRawSrc("/source/os.raw")
+		current := deployment.DefaultDeployment()
+		current.SourceOS = deployment.NewOCISrc("registry.example.com/elemental-os:1.2.3")
+		current.SourceOS.SetDigest("sha256:osimage")
+		Expect(current.WriteDeploymentFile(s, "/")).To(Succeed())
+
+		Expect(i.Reset(d)).To(Succeed())
+
+		Expect(upgrader.SourceOS).NotTo(BeNil())
+		Expect(upgrader.SourceOS.IsRaw()).To(BeTrue())
+		Expect(upgrader.SourceOS.String()).To(Equal("raw:///source/os.raw"))
+		Expect(upgrader.Provenance).NotTo(BeNil())
+		Expect(upgrader.Provenance.IsOCI()).To(BeTrue())
+		Expect(upgrader.Provenance.String()).To(Equal("oci://registry.example.com/elemental-os:1.2.3"))
+		Expect(upgrader.Provenance.GetDigest()).To(Equal("sha256:osimage"))
 	})
 })

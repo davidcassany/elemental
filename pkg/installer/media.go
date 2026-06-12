@@ -678,7 +678,9 @@ func (i Media) writeInstallDescription(installPath string, d *deployment.Deploym
 		d.Installer.CfgScript = filepath.Join(LiveMountPoint, liveDir, cfgScript)
 	}
 
-	d.SourceOS = deployment.NewRawSrc(SquashfsPath)
+	sourceOS := deployment.NewRawSrc(SquashfsPath)
+	sourceOS.SetProvenance(sourceOSProvenance(d.SourceOS))
+	d.SourceOS = sourceOS
 	d.Installer.OverlayTree = deployment.NewDirSrc(LiveMountPoint)
 
 	if i.mType == Disk {
@@ -699,6 +701,17 @@ func (i Media) writeInstallDescription(installPath string, d *deployment.Deploym
 	}
 
 	return nil
+}
+
+func sourceOSProvenance(sourceOS *deployment.ImageSource) *deployment.ImageSource {
+	switch {
+	case sourceOS == nil:
+		return nil
+	case sourceOS.IsOCI():
+		return sourceOS
+	default:
+		return sourceOS.Provenance()
+	}
 }
 
 // customizeDisk creates an installer disk image from the prepared root
