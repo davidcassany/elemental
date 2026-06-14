@@ -1,0 +1,264 @@
+version: '3'
+
+vars:
+  PLATFORM: '{{default "linux/amd64" .PLATFORM}}'
+  ELEMENTAL_VERSION: '{{default "3.0" .ELEMENTAL_VERSION}}'
+  BASE_OS_VERSION: '{{default "16.0" .BASE_OS_VERSION}}'
+  SOURCE_IMAGE: '{{default (printf "registry.suse.com/elemental/base-os-kernel-default:%s" .BASE_OS_VERSION) .SOURCE_IMAGE}}'
+  SOURCE_ISO_IMAGE: '{{default (printf "registry.suse.com/elemental/base-os-kernel-default-iso:%s" .BASE_OS_VERSION) .SOURCE_ISO_IMAGE}}'
+  ELEMENTAL_IMAGE: '{{default "elemental-image:latest" .ELEMENTAL_IMAGE}}'
+  TARGET_ELEMENTAL_IMAGE: '{{default (printf "docker.io/ravan/elemental:%s-elemental-fix" .ELEMENTAL_VERSION) .TARGET_ELEMENTAL_IMAGE}}'
+  TARGET_IMAGE: '{{default (printf "docker.io/ravan/base-os-kernel-default:%s-elemental-fix" .BASE_OS_VERSION) .TARGET_IMAGE}}'
+  TARGET_ISO_IMAGE: '{{default (printf "docker.io/ravan/base-os-kernel-default-iso:%s-elemental-fix" .BASE_OS_VERSION) .TARGET_ISO_IMAGE}}'
+  TARGET_IMAGE_IN_CORE_MANIFEST: '{{default (printf "index.docker.io/ravan/base-os-kernel-default:%s-elemental-fix" .BASE_OS_VERSION) .TARGET_IMAGE_IN_CORE_MANIFEST}}'
+  TARGET_ISO_IMAGE_IN_CORE_MANIFEST: '{{default (printf "index.docker.io/ravan/base-os-kernel-default-iso:%s-elemental-fix" .BASE_OS_VERSION) .TARGET_ISO_IMAGE_IN_CORE_MANIFEST}}'
+  SOURCE_CORE_MANIFEST_REPO: '{{default "elemental/rke2/rke2-manifest" .SOURCE_CORE_MANIFEST_REPO}}'
+  TARGET_CORE_MANIFEST_REPO: '{{default "docker.io/ravan/release-manifest" .TARGET_CORE_MANIFEST_REPO}}'
+  CORE_MANIFEST_TAGS: '{{default "1.35.5" .CORE_MANIFEST_TAGS}}'
+  CORE_MANIFEST_SUFFIX: '{{default "elemental-fix" .CORE_MANIFEST_SUFFIX}}'
+  CORE_MANIFEST_BUILD_DIR: '{{default ".build/core-release-manifests" .CORE_MANIFEST_BUILD_DIR}}'
+  FIX_STRING: '{{default "Applying SE Linux labels to snapshotted RW volumes" .FIX_STRING}}'
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --taskfile "{{.TASKFILE_DIR}}/Taskfile.yaml" --list
+
+  elemental-image:
+    desc: Build the local-only helper image that provides the patched elemental3ctl for OS/ISO patching
+    silent: true
+    cmds:
+      - |
+        docker buildx build \
+          --platform "{{.PLATFORM}}" \
+          --target runner-elemental3ctl \
+          -t "{{.ELEMENTAL_IMAGE}}" \
+          --load \
+          "{{.TASKFILE_DIR}}/.."
+
+  build-elemental:
+    desc: Build the patched Elemental CLI image for publication
+    silent: true
+    cmds:
+      - |
+        docker buildx build \
+          --platform "{{.PLATFORM}}" \
+          --target runner-elemental3 \
+          -t "{{.TARGET_ELEMENTAL_IMAGE}}" \
+          --load \
+          "{{.TASKFILE_DIR}}/.."
+
+  clean-docker-cache:
+    desc: Remove Docker buildx cache for clean rebuilds
+    silent: true
+    cmds:
+      - docker buildx prune --force
+
+  build:
+    desc: Build the patched Elemental CLI, UC base OS, and installer ISO images locally
+    silent: true
+    cmds:
+      - task: elemental-image
+      - task: build-elemental
+      - task: build-base
+      - task: build-iso
+
+  build-base:
+    desc: Build the patched UC base OS image locally
+    silent: true
+    cmds:
+      - |
+        docker buildx build \
+          --platform "{{.PLATFORM}}" \
+          --build-arg SOURCE_IMAGE="{{.SOURCE_IMAGE}}" \
+          --build-arg ELEMENTAL_IMAGE="{{.ELEMENTAL_IMAGE}}" \
+          -t "{{.TARGET_IMAGE}}" \
+          --load \
+          "{{.TASKFILE_DIR}}"
+
+  build-iso:
+    desc: Build the patched UC installer ISO image locally
+    silent: true
+    cmds:
+      - |
+        docker buildx build \
+          --platform "{{.PLATFORM}}" \
+          --build-arg SOURCE_ISO_IMAGE="{{.SOURCE_ISO_IMAGE}}" \
+          --build-arg ELEMENTAL_IMAGE="{{.ELEMENTAL_IMAGE}}" \
+          -f "{{.TASKFILE_DIR}}/Dockerfile.iso" \
+          -t "{{.TARGET_ISO_IMAGE}}" \
+          --load \
+          "{{.TASKFILE_DIR}}"
+
+  verify:
+    desc: Verify the patched UC base OS and installer ISO images
+    silent: true
+    cmds:
+      - task: verify-base
+      - task: verify-iso
+
+  verify-base:
+    desc: Verify the patched image contains the fixed elemental3ctl relabel code path
+    silent: true
+    cmds:
+      - |
+        tmp="$(mktemp)"
+        cid="$(docker create --platform "{{.PLATFORM}}" "{{.TARGET_IMAGE}}")"
+        cleanup() {
+          docker rm "$cid" >/dev/null 2>&1 || true
+          rm -f "$tmp"
+        }
+        trap cleanup EXIT
+        docker cp "$cid:/usr/bin/elemental3ctl" "$tmp"
+        if ! strings "$tmp" | grep -F "{{.FIX_STRING}}" >/dev/null; then
+          echo "missing expected fix string in {{.TARGET_IMAGE}}: {{.FIX_STRING}}" >&2
+          exit 1
+        fi
+        echo "verified {{.TARGET_IMAGE}} contains: {{.FIX_STRING}}"
+
+  verify-iso:
+    desc: Verify the patched ISO image contains the fixed elemental3ctl relabel code path and SELinux labels
+    silent: true
+    cmds:
+      - |
+        workdir="$(mktemp -d)"
+        cid="$(docker create --platform "{{.PLATFORM}}" "{{.TARGET_ISO_IMAGE}}" noop)"
+        cleanup() {
+          docker rm "$cid" >/dev/null 2>&1 || true
+          rm -rf "$workdir"
+        }
+        trap cleanup EXIT
+        docker cp "$cid:/iso" "$workdir/iso"
+        iso="$(find "$workdir/iso" -maxdepth 1 -name '*.iso' -type f | head -n1)"
+        if [ -z "$iso" ]; then
+          echo "missing ISO in {{.TARGET_ISO_IMAGE}}" >&2
+          exit 1
+        fi
+        docker run --rm --platform "{{.PLATFORM}}" \
+          -v "$workdir:/work" \
+          registry.opensuse.org/opensuse/tumbleweed:latest /bin/sh -euxc '
+            zypper --non-interactive install --no-recommends squashfs xorriso binutils gawk policycoreutils >/dev/null
+            xorriso -osirrox on -indev /work/iso/$(basename "$1") -extract /LiveOS/squashfs.img /work/squashfs.img >/dev/null 2>&1
+            root="$(mktemp -d)"
+            unsquashfs -no-xattrs -d "$root" /work/squashfs.img \
+              usr/bin/elemental3ctl \
+              usr/bin/bash \
+              usr/lib/modules \
+              etc/passwd \
+              etc/shadow \
+              etc/selinux/config \
+              etc/selinux/targeted/contexts/files/file_contexts >/dev/null
+            strings "$root/usr/bin/elemental3ctl" | grep -F "$2" >/dev/null
+            file_contexts="$root/etc/selinux/targeted/contexts/files/file_contexts"
+            [ -f "$file_contexts" ] || { echo "missing SELinux file contexts in {{.TARGET_ISO_IMAGE}}" >&2; exit 1; }
+            for path in \
+              usr/bin/elemental3ctl \
+              usr/bin/bash \
+              usr/lib/modules \
+              etc/passwd \
+              etc/shadow \
+              etc/selinux/config; do
+              label="$(setfiles -n -v -r "$root" "$file_contexts" "$root/$path" 2>&1 \
+                | awk '"'"'/^Would relabel / && $NF ~ /:/ { print $NF; exit }'"'"')"
+              if [ -z "$label" ] || printf "%s" "$label" | grep -F unlabeled_t >/dev/null; then
+                echo "missing valid SELinux label on /$path in {{.TARGET_ISO_IMAGE}}: ${label:-<missing>}" >&2
+                exit 1
+              fi
+              echo "verified /$path SELinux label: $label"
+            done
+          ' verify-iso "$(basename "$iso")" "{{.FIX_STRING}}"
+        echo "verified {{.TARGET_ISO_IMAGE}} contains {{.FIX_STRING}} and SELinux labels on critical live root paths"
+
+  publish:
+    desc: Push the patched Elemental CLI, UC base OS, and installer ISO images
+    silent: true
+    cmds:
+      - task: verify
+      - task: publish-elemental
+      - task: publish-base
+      - task: publish-iso
+      - task: publish-summary
+
+  publish-elemental:
+    desc: Push the patched Elemental CLI image
+    silent: true
+    cmds:
+      - |
+        docker push "{{.TARGET_ELEMENTAL_IMAGE}}"
+        echo
+        echo "Published Elemental image: {{.TARGET_ELEMENTAL_IMAGE}}"
+
+  publish-base:
+    desc: Push the patched UC base OS image
+    silent: true
+    cmds:
+      - docker push "{{.TARGET_IMAGE}}"
+
+  publish-iso:
+    desc: Push the patched UC installer ISO image
+    silent: true
+    cmds:
+      - docker push "{{.TARGET_ISO_IMAGE}}"
+
+  build-publish:
+    desc: Build, verify, and push the patched UC base OS, installer ISO, and core release-manifest images
+    silent: true
+    cmds:
+      - task: build
+      - task: verify
+      - task: publish
+      - task: core-manifests:publish
+      - task: publish-summary
+
+  publish-summary:
+    desc: Print copy-paste artifact references for Elemental YAML files
+    silent: true
+    cmds:
+      - |
+        echo
+        echo "Published artifact references:"
+        echo
+        echo "Patched Elemental CLI image:"
+        echo "  {{.TARGET_ELEMENTAL_IMAGE}}"
+        echo
+        echo "Patched UC images:"
+        echo "  operatingSystem.image.base: {{.TARGET_IMAGE}}"
+        echo "  operatingSystem.image.iso:  {{.TARGET_ISO_IMAGE}}"
+        echo
+        echo "Core release manifest references:"
+        for tag in {{.CORE_MANIFEST_TAGS}}; do
+          ref="{{.TARGET_CORE_MANIFEST_REPO}}:${tag}-{{.CORE_MANIFEST_SUFFIX}}"
+          echo "  ${ref}"
+          echo
+          echo "  corePlatform:"
+          echo "    image: ${ref}"
+          echo
+        done
+
+  core-manifests:prepare:
+    desc: Generate patched core release-manifest build contexts
+    silent: true
+    cmds:
+      - |
+        rm -rf "{{.TASKFILE_DIR}}/{{.CORE_MANIFEST_BUILD_DIR}}"
+        python3 "{{.TASKFILE_DIR}}/patch-core-manifests.py" \
+          --source-repo "{{.SOURCE_CORE_MANIFEST_REPO}}" \
+          --target-os-image "{{.TARGET_IMAGE_IN_CORE_MANIFEST}}" \
+          --target-iso-image "{{.TARGET_ISO_IMAGE_IN_CORE_MANIFEST}}" \
+          --output-dir "{{.TASKFILE_DIR}}/{{.CORE_MANIFEST_BUILD_DIR}}" \
+          {{.CORE_MANIFEST_TAGS}}
+
+  core-manifests:publish:
+    desc: Build and push patched core release-manifest images
+    silent: true
+    cmds:
+      - task: core-manifests:prepare
+      - |
+        for tag in {{.CORE_MANIFEST_TAGS}}; do
+          docker buildx build \
+            --platform "{{.PLATFORM}}" \
+            -t "{{.TARGET_CORE_MANIFEST_REPO}}:${tag}-{{.CORE_MANIFEST_SUFFIX}}" \
+            --push \
+            "{{.TASKFILE_DIR}}/{{.CORE_MANIFEST_BUILD_DIR}}/${tag}"
+        done
