@@ -4,18 +4,19 @@ vars:
   PLATFORM: '{{default "linux/amd64" .PLATFORM}}'
   ELEMENTAL_VERSION: '{{default "3.0" .ELEMENTAL_VERSION}}'
   BASE_OS_VERSION: '{{default "16.0" .BASE_OS_VERSION}}'
+  PATCH_VERSION: '{{default "elemental-fix" .PATCH_VERSION}}'
   SOURCE_IMAGE: '{{default (printf "registry.suse.com/elemental/base-os-kernel-default:%s" .BASE_OS_VERSION) .SOURCE_IMAGE}}'
   SOURCE_ISO_IMAGE: '{{default (printf "registry.suse.com/elemental/base-os-kernel-default-iso:%s" .BASE_OS_VERSION) .SOURCE_ISO_IMAGE}}'
   ELEMENTAL_IMAGE: '{{default "elemental-image:latest" .ELEMENTAL_IMAGE}}'
-  TARGET_ELEMENTAL_IMAGE: '{{default (printf "docker.io/ravan/elemental:%s-elemental-fix" .ELEMENTAL_VERSION) .TARGET_ELEMENTAL_IMAGE}}'
-  TARGET_IMAGE: '{{default (printf "docker.io/ravan/base-os-kernel-default:%s-elemental-fix" .BASE_OS_VERSION) .TARGET_IMAGE}}'
-  TARGET_ISO_IMAGE: '{{default (printf "docker.io/ravan/base-os-kernel-default-iso:%s-elemental-fix" .BASE_OS_VERSION) .TARGET_ISO_IMAGE}}'
-  TARGET_IMAGE_IN_CORE_MANIFEST: '{{default (printf "index.docker.io/ravan/base-os-kernel-default:%s-elemental-fix" .BASE_OS_VERSION) .TARGET_IMAGE_IN_CORE_MANIFEST}}'
-  TARGET_ISO_IMAGE_IN_CORE_MANIFEST: '{{default (printf "index.docker.io/ravan/base-os-kernel-default-iso:%s-elemental-fix" .BASE_OS_VERSION) .TARGET_ISO_IMAGE_IN_CORE_MANIFEST}}'
+  TARGET_ELEMENTAL_IMAGE: '{{default (printf "docker.io/ravan/elemental:%s-%s" .ELEMENTAL_VERSION .PATCH_VERSION) .TARGET_ELEMENTAL_IMAGE}}'
+  TARGET_IMAGE: '{{default (printf "docker.io/ravan/base-os-kernel-default:%s-%s" .BASE_OS_VERSION .PATCH_VERSION) .TARGET_IMAGE}}'
+  TARGET_ISO_IMAGE: '{{default (printf "docker.io/ravan/base-os-kernel-default-iso:%s-%s" .BASE_OS_VERSION .PATCH_VERSION) .TARGET_ISO_IMAGE}}'
+  TARGET_IMAGE_IN_CORE_MANIFEST: '{{default (printf "index.docker.io/ravan/base-os-kernel-default:%s-%s" .BASE_OS_VERSION .PATCH_VERSION) .TARGET_IMAGE_IN_CORE_MANIFEST}}'
+  TARGET_ISO_IMAGE_IN_CORE_MANIFEST: '{{default (printf "index.docker.io/ravan/base-os-kernel-default-iso:%s-%s" .BASE_OS_VERSION .PATCH_VERSION) .TARGET_ISO_IMAGE_IN_CORE_MANIFEST}}'
   SOURCE_CORE_MANIFEST_REPO: '{{default "elemental/rke2/rke2-manifest" .SOURCE_CORE_MANIFEST_REPO}}'
   TARGET_CORE_MANIFEST_REPO: '{{default "docker.io/ravan/release-manifest" .TARGET_CORE_MANIFEST_REPO}}'
   CORE_MANIFEST_TAGS: '{{default "1.35.5" .CORE_MANIFEST_TAGS}}'
-  CORE_MANIFEST_SUFFIX: '{{default "elemental-fix" .CORE_MANIFEST_SUFFIX}}'
+  CORE_MANIFEST_SUFFIX: '{{default .PATCH_VERSION .CORE_MANIFEST_SUFFIX}}'
   CORE_MANIFEST_BUILD_DIR: '{{default ".build/core-release-manifests" .CORE_MANIFEST_BUILD_DIR}}'
   FIX_STRING: '{{default "Applying SE Linux labels to snapshotted RW volumes" .FIX_STRING}}'
 
@@ -73,9 +74,10 @@ tasks:
           --platform "{{.PLATFORM}}" \
           --build-arg SOURCE_IMAGE="{{.SOURCE_IMAGE}}" \
           --build-arg ELEMENTAL_IMAGE="{{.ELEMENTAL_IMAGE}}" \
+          -f "{{.TASKFILE_DIR}}/Dockerfile" \
           -t "{{.TARGET_IMAGE}}" \
           --load \
-          "{{.TASKFILE_DIR}}"
+          "{{.TASKFILE_DIR}}/.."
 
   build-iso:
     desc: Build the patched UC installer ISO image locally
@@ -89,7 +91,7 @@ tasks:
           -f "{{.TASKFILE_DIR}}/Dockerfile.iso" \
           -t "{{.TARGET_ISO_IMAGE}}" \
           --load \
-          "{{.TASKFILE_DIR}}"
+          "{{.TASKFILE_DIR}}/.."
 
   verify:
     desc: Verify the patched UC base OS and installer ISO images
@@ -103,19 +105,25 @@ tasks:
     silent: true
     cmds:
       - |
-        tmp="$(mktemp)"
+        workdir="$(mktemp -d)"
+        tmp="$workdir/elemental3ctl"
         cid="$(docker create --platform "{{.PLATFORM}}" "{{.TARGET_IMAGE}}")"
         cleanup() {
           docker rm "$cid" >/dev/null 2>&1 || true
-          rm -f "$tmp"
+          rm -rf "$workdir"
         }
         trap cleanup EXIT
         docker cp "$cid:/usr/bin/elemental3ctl" "$tmp"
         if ! strings "$tmp" | grep -F "{{.FIX_STRING}}" >/dev/null; then
           echo "missing expected fix string in {{.TARGET_IMAGE}}: {{.FIX_STRING}}" >&2
           exit 1
-        fi
-        echo "verified {{.TARGET_IMAGE}} contains: {{.FIX_STRING}}"
+          fi
+          echo "verified {{.TARGET_IMAGE}} contains: {{.FIX_STRING}}"
+          docker cp "$cid:/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh" "$workdir/elemental-platform-resolver.sh"
+          docker cp "$cid:/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.service" "$workdir/elemental-platform-resolver.service"
+          grep -F 'PLATFORM_HINT' "$workdir/elemental-platform-resolver.sh" >/dev/null
+          grep -F 'Before=ignition-fetch-offline.service ignition-fetch.service ignition-disks.service ignition-files.service ignition-complete.target' "$workdir/elemental-platform-resolver.service" >/dev/null
+          echo "verified {{.TARGET_IMAGE}} contains Elemental Platform Hint resolver module"
 
   verify-iso:
     desc: Verify the patched ISO image contains the fixed elemental3ctl relabel code path and SELinux labels
@@ -142,15 +150,23 @@ tasks:
             xorriso -osirrox on -indev /work/iso/$(basename "$1") -extract /LiveOS/squashfs.img /work/squashfs.img >/dev/null 2>&1
             root="$(mktemp -d)"
             unsquashfs -no-xattrs -d "$root" /work/squashfs.img \
-              usr/bin/elemental3ctl \
-              usr/bin/bash \
-              usr/lib/modules \
-              etc/passwd \
-              etc/shadow \
-              etc/selinux/config \
-              etc/selinux/targeted/contexts/files/file_contexts >/dev/null
-            strings "$root/usr/bin/elemental3ctl" | grep -F "$2" >/dev/null
-            file_contexts="$root/etc/selinux/targeted/contexts/files/file_contexts"
+            usr/bin/elemental3ctl \
+            usr/bin/bash \
+            usr/lib/modules \
+            usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh \
+            usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.service \
+            usr/lib/dracut/modules.d/29elemental-platform-resolver/module-setup.sh \
+            etc/passwd \
+            etc/shadow \
+            etc/selinux/config \
+            etc/selinux/targeted/contexts/files/file_contexts >/dev/null
+          strings "$root/usr/bin/elemental3ctl" | grep -F "$2" >/dev/null
+          test -x "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh"
+          test -x "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/module-setup.sh"
+          grep -F 'PLATFORM_HINT' "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh" >/dev/null
+          grep -F 'WantedBy=initrd.target' "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.service" >/dev/null
+          echo "verified {{.TARGET_ISO_IMAGE}} contains Elemental Platform Hint resolver module"
+          file_contexts="$root/etc/selinux/targeted/contexts/files/file_contexts"
             [ -f "$file_contexts" ] || { echo "missing SELinux file contexts in {{.TARGET_ISO_IMAGE}}" >&2; exit 1; }
             for path in \
               usr/bin/elemental3ctl \

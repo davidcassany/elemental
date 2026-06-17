@@ -19,6 +19,7 @@ RUN zypper --non-interactive install --no-recommends \
     zypper clean --all
 
 COPY --from=elemental /usr/bin/elemental3ctl /work/elemental3ctl
+COPY pkg/dracut/modules.d/29elemental-platform-resolver /work/29elemental-platform-resolver
 COPY --from=iso-src /iso/ /work/iso-in/
 
 WORKDIR /work
@@ -37,6 +38,14 @@ xorriso -osirrox on -indev "$in_iso" -extract /LiveOS/squashfs.img squashfs.img 
 unsquashfs -no-xattrs -d squashfs-root squashfs.img >/dev/null
 cat elemental3ctl > squashfs-root/usr/bin/elemental3ctl
 chmod 0755 squashfs-root/usr/bin/elemental3ctl
+mkdir -p squashfs-root/usr/lib/dracut/modules.d/29elemental-platform-resolver
+cp -a 29elemental-platform-resolver/. squashfs-root/usr/lib/dracut/modules.d/29elemental-platform-resolver/
+chmod 0755 \
+  squashfs-root/usr/lib/dracut/modules.d/29elemental-platform-resolver/module-setup.sh \
+  squashfs-root/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh
+if chroot squashfs-root command -v dracut >/dev/null 2>&1; then
+  chroot squashfs-root dracut -f --regenerate-all
+fi
 file_contexts="squashfs-root/etc/selinux/targeted/contexts/files/file_contexts"
 [ -f "$file_contexts" ] || { echo "missing SELinux file contexts: $file_contexts" >&2; exit 1; }
 setfiles -n -v -r "$PWD/squashfs-root" "$file_contexts" "$PWD/squashfs-root" 2>&1 \

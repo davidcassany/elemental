@@ -55,17 +55,19 @@ Defaults:
 
 - `ELEMENTAL_VERSION=3.0`
 - `BASE_OS_VERSION=16.0`
+- `PATCH_VERSION=elemental-fix`
 - `SOURCE_IMAGE=registry.suse.com/elemental/base-os-kernel-default:${BASE_OS_VERSION}`
 - `SOURCE_ISO_IMAGE=registry.suse.com/elemental/base-os-kernel-default-iso:${BASE_OS_VERSION}`
 - `ELEMENTAL_IMAGE=elemental-image:latest` local-only helper image for OS/ISO patching
-- `TARGET_ELEMENTAL_IMAGE=docker.io/ravan/elemental:3.0-elemental-fix`
-- `TARGET_IMAGE=docker.io/ravan/base-os-kernel-default:${BASE_OS_VERSION}-elemental-fix`
-- `TARGET_ISO_IMAGE=docker.io/ravan/base-os-kernel-default-iso:${BASE_OS_VERSION}-elemental-fix`
-- `TARGET_IMAGE_IN_CORE_MANIFEST=index.docker.io/ravan/base-os-kernel-default:${BASE_OS_VERSION}-elemental-fix`
-- `TARGET_ISO_IMAGE_IN_CORE_MANIFEST=index.docker.io/ravan/base-os-kernel-default-iso:${BASE_OS_VERSION}-elemental-fix`
+- `TARGET_ELEMENTAL_IMAGE=docker.io/ravan/elemental:${ELEMENTAL_VERSION}-${PATCH_VERSION}`
+- `TARGET_IMAGE=docker.io/ravan/base-os-kernel-default:${BASE_OS_VERSION}-${PATCH_VERSION}`
+- `TARGET_ISO_IMAGE=docker.io/ravan/base-os-kernel-default-iso:${BASE_OS_VERSION}-${PATCH_VERSION}`
+- `TARGET_IMAGE_IN_CORE_MANIFEST=index.docker.io/ravan/base-os-kernel-default:${BASE_OS_VERSION}-${PATCH_VERSION}`
+- `TARGET_ISO_IMAGE_IN_CORE_MANIFEST=index.docker.io/ravan/base-os-kernel-default-iso:${BASE_OS_VERSION}-${PATCH_VERSION}`
 - `SOURCE_CORE_MANIFEST_REPO=elemental/rke2/rke2-manifest`
 - `TARGET_CORE_MANIFEST_REPO=docker.io/ravan/release-manifest`
 - `CORE_MANIFEST_TAGS="1.35.5"`
+- `CORE_MANIFEST_SUFFIX=${PATCH_VERSION}`
 - `PLATFORM=linux/amd64`
 
 Override any value at invocation time:
@@ -74,7 +76,23 @@ Override any value at invocation time:
 task --taskfile uc-base-os-patch/Taskfile.yaml build-publish \
   ELEMENTAL_VERSION=3.0 \
   BASE_OS_VERSION=16.0 \
-  CORE_MANIFEST_TAGS=1.35.5
+CORE_MANIFEST_TAGS=1.35.5
+```
+
+Use `PATCH_VERSION` for patch subversions while keeping upstream versions unchanged:
+
+```bash
+task --taskfile uc-base-os-patch/Taskfile.yaml build-publish \
+PATCH_VERSION=elemental-fix.1
+```
+
+That publishes image references like:
+
+```text
+docker.io/ravan/elemental:3.0-elemental-fix.1
+docker.io/ravan/base-os-kernel-default:16.0-elemental-fix.1
+docker.io/ravan/base-os-kernel-default-iso:16.0-elemental-fix.1
+docker.io/ravan/release-manifest:1.35.5-elemental-fix.1
 ```
 
 The published Elemental CLI replacement is:
