@@ -6,14 +6,19 @@ SPDX-License-Identifier: Apache-2.0
 package action
 
 import (
+	"context"
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/urfave/cli/v3"
 
+	cmdpkg "github.com/suse/elemental/v3/internal/cli/cmd"
+	"github.com/suse/elemental/v3/internal/dynamicdata"
 	"github.com/suse/elemental/v3/pkg/log"
 	"github.com/suse/elemental/v3/pkg/sys"
 	sysmock "github.com/suse/elemental/v3/pkg/sys/mock"
 	"github.com/suse/elemental/v3/pkg/sys/vfs"
-	"github.com/suse/elemental/v3/pkg/userdata"
 )
 
 var _ = Describe("writeHostnameFromUserData", Label("k8s-dynamic", "hostname"), func() {
@@ -42,9 +47,9 @@ var _ = Describe("writeHostnameFromUserData", Label("k8s-dynamic", "hostname"), 
 	})
 
 	It("writes hostname to /etc/hostname and applies it via hostnamectl", func() {
-		ud := &userdata.UserData{
-			Data:     map[string]any{"hostname": "node1.example.com"},
-			Provider: "test",
+		ud := &dynamicdata.Data{
+			Values: map[string]any{"hostname": "node1.example.com"},
+			Source: "test",
 		}
 
 		err := writeHostnameFromUserData(system, ud)
@@ -60,9 +65,9 @@ var _ = Describe("writeHostnameFromUserData", Label("k8s-dynamic", "hostname"), 
 	})
 
 	It("does nothing when hostname is not set", func() {
-		ud := &userdata.UserData{
-			Data:     map[string]any{"rke2": map[string]any{"type": "server"}},
-			Provider: "test",
+		ud := &dynamicdata.Data{
+			Values: map[string]any{"rke2": map[string]any{"type": "server"}},
+			Source: "test",
 		}
 
 		err := writeHostnameFromUserData(system, ud)
@@ -70,9 +75,9 @@ var _ = Describe("writeHostnameFromUserData", Label("k8s-dynamic", "hostname"), 
 	})
 
 	It("does nothing when hostname is empty", func() {
-		ud := &userdata.UserData{
-			Data:     map[string]any{"hostname": ""},
-			Provider: "test",
+		ud := &dynamicdata.Data{
+			Values: map[string]any{"hostname": ""},
+			Source: "test",
 		}
 
 		err := writeHostnameFromUserData(system, ud)
@@ -108,8 +113,8 @@ var _ = Describe("writeSSHKeysFromUserData", Label("k8s-dynamic", "ssh"), func()
 	})
 
 	It("writes SSH keys to /root/.ssh/authorized_keys for root user", func() {
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"users": []any{
 					map[string]any{
 						"name": "root",
@@ -119,7 +124,7 @@ var _ = Describe("writeSSHKeysFromUserData", Label("k8s-dynamic", "ssh"), func()
 					},
 				},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		err := writeSSHKeysFromUserData(system, ud)
@@ -135,8 +140,8 @@ var _ = Describe("writeSSHKeysFromUserData", Label("k8s-dynamic", "ssh"), func()
 		Expect(vfs.MkdirAll(system.FS(), "/root/.ssh", 0o700)).To(Succeed())
 		Expect(system.FS().WriteFile("/root/.ssh/authorized_keys", []byte("ssh-rsa existing-key\n"), 0o600)).To(Succeed())
 
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"users": []any{
 					map[string]any{
 						"name": "root",
@@ -146,7 +151,7 @@ var _ = Describe("writeSSHKeysFromUserData", Label("k8s-dynamic", "ssh"), func()
 					},
 				},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		err := writeSSHKeysFromUserData(system, ud)
@@ -159,8 +164,8 @@ var _ = Describe("writeSSHKeysFromUserData", Label("k8s-dynamic", "ssh"), func()
 	})
 
 	It("handles multiple users with multiple keys", func() {
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"users": []any{
 					map[string]any{
 						"name": "root",
@@ -171,7 +176,7 @@ var _ = Describe("writeSSHKeysFromUserData", Label("k8s-dynamic", "ssh"), func()
 					},
 				},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		err := writeSSHKeysFromUserData(system, ud)
@@ -184,11 +189,11 @@ var _ = Describe("writeSSHKeysFromUserData", Label("k8s-dynamic", "ssh"), func()
 	})
 
 	It("does nothing when no users section exists", func() {
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"rke2": map[string]any{"type": "server"},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		err := writeSSHKeysFromUserData(system, ud)
@@ -204,15 +209,15 @@ var _ = Describe("writeSSHKeysFromUserData", Label("k8s-dynamic", "ssh"), func()
 	})
 
 	It("skips users without ssh_authorized_keys", func() {
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"users": []any{
 					map[string]any{
 						"name": "root",
 					},
 				},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		err := writeSSHKeysFromUserData(system, ud)
@@ -243,15 +248,15 @@ var _ = Describe("writeK8sDynamicDeployScript", Label("k8s-dynamic", "deploy-scr
 	})
 
 	It("installs embedded RKE2 artifacts before enabling the node service", func() {
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"rke2": map[string]any{
 					"type":  "server",
 					"init":  true,
 					"token": "test-token",
 				},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		err := writeK8sDynamicDeployScript(system, "/var/lib/elemental/kubernetes", ud)
@@ -292,8 +297,8 @@ var _ = Describe("writeRKE2ConfigFromUserData", Label("k8s-dynamic", "rke2"), fu
 	})
 
 	It("writes node-label entries from dynamic user data into generated RKE2 config", func() {
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"rke2": map[string]any{
 					"type":   "agent",
 					"token":  "test-token",
@@ -304,7 +309,7 @@ var _ = Describe("writeRKE2ConfigFromUserData", Label("k8s-dynamic", "rke2"), fu
 					},
 				},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		err := writeRKE2ConfigFromUserData(system, "/var/lib/elemental/kubernetes", ud)
@@ -342,7 +347,7 @@ var _ = Describe("k8s dynamic status", Label("k8s-dynamic", "status"), func() {
 
 	It("writes sanitized persistent status without raw Helm values", func() {
 		status := k8sDynamicStatus{
-			UserData: userDataStatus{Provider: "aws", Fetched: true},
+			UserData: userDataStatus{Source: "aws", Fetched: true},
 			SSH:      applyStatus{Applied: true},
 			RKE2:     applyStatus{Applied: true},
 			Helm: helmStatus{
@@ -357,7 +362,7 @@ var _ = Describe("k8s dynamic status", Label("k8s-dynamic", "status"), func() {
 
 		content, err := system.FS().ReadFile(k8sDynamicStatusPath)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(string(content)).To(ContainSubstring("provider: aws"))
+		Expect(string(content)).To(ContainSubstring("source: aws"))
 		Expect(string(content)).To(ContainSubstring("overridesApplied: false"))
 		Expect(string(content)).To(ContainSubstring("knownCharts:"))
 		Expect(string(content)).To(ContainSubstring("deployResources: false"))
@@ -411,8 +416,8 @@ spec:
 	})
 
 	It("recursively merges runtime values into existing HelmChart valuesContent", func() {
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"helm": map[string]any{
 					"values": map[string]any{
 						"rancher": map[string]any{
@@ -427,7 +432,7 @@ spec:
 					},
 				},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		result, err := applyRuntimeHelmOverrides(system, "/var/lib/elemental/kubernetes", ud)
@@ -448,8 +453,8 @@ spec:
 	})
 
 	It("reports unknown chart names without writing raw override values", func() {
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"helm": map[string]any{
 					"values": map[string]any{
 						"certmanager": map[string]any{
@@ -458,7 +463,7 @@ spec:
 					},
 				},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		result, err := applyRuntimeHelmOverrides(system, "/var/lib/elemental/kubernetes", ud)
@@ -469,15 +474,15 @@ spec:
 	})
 
 	It("rejects a chart override root that is not a map", func() {
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"helm": map[string]any{
 					"values": map[string]any{
 						"rancher": "new.example.com",
 					},
 				},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		result, err := applyRuntimeHelmOverrides(system, "/var/lib/elemental/kubernetes", ud)
@@ -487,8 +492,8 @@ spec:
 	})
 
 	It("allows SSH setup to complete before returning a recoverable Helm error", func() {
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"users": []any{
 					map[string]any{
 						"name": "root",
@@ -505,7 +510,7 @@ spec:
 					},
 				},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		status, err := applyDynamicConfigurationFromUserData(system, "/var/lib/elemental/kubernetes", ud)
@@ -526,8 +531,8 @@ spec:
 	})
 
 	It("does not allow runtime values to change chart identity fields", func() {
-		ud := &userdata.UserData{
-			Data: map[string]any{
+		ud := &dynamicdata.Data{
+			Values: map[string]any{
 				"helm": map[string]any{
 					"values": map[string]any{
 						"rancher": map[string]any{
@@ -538,7 +543,7 @@ spec:
 					},
 				},
 			},
-			Provider: "test",
+			Source: "test",
 		}
 
 		_, err := applyRuntimeHelmOverrides(system, "/var/lib/elemental/kubernetes", ud)
@@ -580,7 +585,7 @@ var _ = Describe("writeResourceDeployMarkerFromUserData", Label("k8s-dynamic", "
 	})
 
 	It("defaults omitted deployResources to true and writes marker", func() {
-		status, err := writeResourceDeployMarkerFromUserData(system, &userdata.UserData{Data: map[string]any{}})
+		status, err := writeResourceDeployMarkerFromUserData(system, &dynamicdata.Data{Values: map[string]any{}})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(status.DeployResources).To(BeTrue())
 		exists, err := vfs.Exists(system.FS(), k8sDynamicDeployResourcesMarkerPath)
@@ -589,7 +594,7 @@ var _ = Describe("writeResourceDeployMarkerFromUserData", Label("k8s-dynamic", "
 	})
 
 	It("writes marker when deployResources is true", func() {
-		ud := &userdata.UserData{Data: map[string]any{
+		ud := &dynamicdata.Data{Values: map[string]any{
 			"elemental": map[string]any{
 				"kubernetes": map[string]any{
 					"deployResources": true,
@@ -606,7 +611,7 @@ var _ = Describe("writeResourceDeployMarkerFromUserData", Label("k8s-dynamic", "
 	})
 
 	It("removes marker when deployResources is false even for an init server", func() {
-		ud := &userdata.UserData{Data: map[string]any{
+		ud := &dynamicdata.Data{Values: map[string]any{
 			"rke2": map[string]any{
 				"type": "server",
 				"init": true,
@@ -624,5 +629,93 @@ var _ = Describe("writeResourceDeployMarkerFromUserData", Label("k8s-dynamic", "
 		exists, err := vfs.Exists(system.FS(), k8sDynamicDeployResourcesMarkerPath)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(exists).To(BeFalse())
+	})
+})
+
+var _ = Describe("K8sDynamicApply", Label("k8s-dynamic", "apply"), func() {
+	var (
+		system  *sys.System
+		cleanup func()
+	)
+
+	command := func() *cli.Command {
+		return &cli.Command{
+			Metadata: map[string]any{
+				"system": system,
+			},
+		}
+	}
+
+	BeforeEach(func() {
+		cmdpkg.K8sDynamicArgs = cmdpkg.K8sDynamicFlags{}
+		fs, c, err := sysmock.TestFS(nil)
+		Expect(err).NotTo(HaveOccurred())
+		cleanup = c
+		system, err = sys.NewSystem(
+			sys.WithFS(fs),
+			sys.WithLogger(log.New(log.WithDiscardAll())),
+			sys.WithRunner(sysmock.NewRunner()),
+		)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		cmdpkg.K8sDynamicArgs = cmdpkg.K8sDynamicFlags{}
+		cleanup()
+	})
+
+	It("requires --config", func() {
+		err := K8sDynamicApply(context.Background(), command())
+
+		Expect(err).To(MatchError(ContainSubstring("--config is required")))
+	})
+
+	It("reads Dynamic Node User Data from --config", func() {
+		configPath := "/var/lib/elemental/k8s-dynamic/userdata.yaml"
+		Expect(vfs.MkdirAll(system.FS(), filepath.Dir(configPath), 0o755)).To(Succeed())
+		Expect(system.FS().WriteFile(configPath, []byte("hostname: node1.example.com\nrke2:\n  type: server\n  init: true\n  token: test-token\n"), 0o644)).To(Succeed())
+		cmdpkg.K8sDynamicArgs = cmdpkg.K8sDynamicFlags{ConfigPath: configPath}
+
+		err := K8sDynamicApply(context.Background(), command())
+
+		Expect(err).NotTo(HaveOccurred())
+		hostname, err := system.FS().ReadFile("/etc/hostname")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(hostname)).To(Equal("node1.example.com\n"))
+		initConfig, err := system.FS().ReadFile("/var/lib/elemental/kubernetes/init.yaml")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(initConfig)).To(ContainSubstring("token: test-token"))
+	})
+
+	It("writes persistent diagnostics when config file is missing", func() {
+		configPath := "/var/lib/elemental/k8s-dynamic/userdata.yaml"
+		cmdpkg.K8sDynamicArgs = cmdpkg.K8sDynamicFlags{ConfigPath: configPath}
+
+		err := K8sDynamicApply(context.Background(), command())
+
+		Expect(err).To(MatchError(ContainSubstring("reading Dynamic Node User Data")))
+		status, readErr := system.FS().ReadFile(k8sDynamicStatusPath)
+		Expect(readErr).NotTo(HaveOccurred())
+		Expect(string(status)).To(ContainSubstring(configPath))
+	})
+
+	It("fails invalid config before writing derived files", func() {
+		configPath := "/var/lib/elemental/k8s-dynamic/userdata.yaml"
+		Expect(vfs.MkdirAll(system.FS(), filepath.Dir(configPath), 0o755)).To(Succeed())
+		Expect(system.FS().WriteFile(configPath, []byte("rke2: ["), 0o644)).To(Succeed())
+		cmdpkg.K8sDynamicArgs = cmdpkg.K8sDynamicFlags{ConfigPath: configPath}
+
+		err := K8sDynamicApply(context.Background(), command())
+
+		Expect(err).To(MatchError(ContainSubstring("parsing Dynamic Node User Data")))
+		for _, path := range []string{
+			"/var/lib/elemental/kubernetes/init.yaml",
+			"/var/lib/elemental/kubernetes/server.yaml",
+			"/var/lib/elemental/kubernetes/agent.yaml",
+		} {
+			exists, existsErr := vfs.Exists(system.FS(), path)
+			Expect(existsErr).NotTo(HaveOccurred())
+			Expect(exists).To(BeFalse(), path)
+		}
 	})
 })

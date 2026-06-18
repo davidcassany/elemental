@@ -19,11 +19,11 @@ limitations under the License.
 package image
 
 import (
+	"github.com/suse/elemental/v3/internal/dynamicservice"
 	"github.com/suse/elemental/v3/internal/image/install"
 	"github.com/suse/elemental/v3/internal/image/kubernetes"
 	"github.com/suse/elemental/v3/internal/image/release"
 	"github.com/suse/elemental/v3/pkg/sys/platform"
-	"github.com/suse/elemental/v3/pkg/userdata"
 )
 
 const (
@@ -36,13 +36,13 @@ type Definition struct {
 }
 
 type Configuration struct {
-	Installation install.Installation  `validate:"required"`
-	Release      release.Release       `validate:"required"`
-	Kubernetes   kubernetes.Kubernetes `validate:"omitempty"`
-	Network      Network               `validate:"omitempty"`
-	Custom       Custom                `validate:"omitempty"`
-	ButaneConfig map[string]any        `validate:"omitempty"`
-	UserData     userdata.Config       `validate:"omitempty"`
+	Installation    install.Installation  `validate:"required"`
+	Release         release.Release       `validate:"required"`
+	Kubernetes      kubernetes.Kubernetes `validate:"omitempty"`
+	Network         Network               `validate:"omitempty"`
+	Custom          Custom                `validate:"omitempty"`
+	ButaneConfig    map[string]any        `validate:"omitempty"`
+	DynamicServices dynamicservice.Config `validate:"omitempty"`
 }
 
 type Image struct {

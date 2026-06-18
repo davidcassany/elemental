@@ -95,7 +95,7 @@ Elemental does not enforce or prefer any specific Butane variant.
 
 Check [Filesystem Modes](filesystem.md/#filesystem-modes) for more information on the filesystem layout and which paths are writable.
 
-Check [Elemental and Ignition Integration](./ignition-integration.md) for further details about Ignition being used in the scope of Elemental.
+Check [Dynamic Elemental Services](./dynamic-elemental-services.md) for further details about merge-mode runtime data delivery and dynamic Elemental services.
 
 > [!NOTE]
 > The inclusion of an external Butane configuration file is not considered to be a stable part of the Elemental user interface. Butane configuration

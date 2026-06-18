@@ -229,6 +229,48 @@ disks:
 
 	})
 
+	It("adds embedded config partition for merge mode", func() {
+		customizeOutput := output
+		customizeOutput.Mode = config.OutputModeMerge
+		customizeRunner.FileExtractor = &fileExtractorMock{
+			extractFunc: func(uri string) (path string, err error) {
+				Expect(uri).To(Equal(expectedISO))
+				return "", nil
+			},
+		}
+		customizeDeployment := &deployment.Deployment{}
+		customizeRunner.Media = &mediaMock{
+			customizeFunc: func(d *deployment.Deployment) error {
+				customizeDeployment = d
+				return nil
+			},
+		}
+		def := &image.Definition{
+			Image: image.Image{
+				ImageType: "iso",
+			},
+			Configuration: &image.Configuration{
+				Installation: install.Installation{
+					Bootloader:    "grub",
+					KernelCmdLine: "console=ttyS0",
+					CryptoPolicy:  crypto.FIPSPolicy,
+					SerialConsole: true,
+					ISO: install.ISO{
+						Device: "/dev/sda",
+					},
+				},
+			},
+		}
+		Expect(vfs.MkdirAll(fs, customizeOutput.FirstbootConfigDir(), vfs.DirPerm)).To(Succeed())
+
+		err := customizeRunner.Run(context.Background(), def, customizeOutput)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(customizeDeployment.Disks[0].Partitions).To(ContainElement(WithTransform(func(p *deployment.Partition) bool {
+			return p != nil && p.Role == deployment.Config && p.Hidden && p.Label == deployment.ConfigLabel
+		}, BeTrue())))
+	})
+
 	It("passes deployment object for RAW media without additional partitions", func() {
 		customizeRunner.FileExtractor = &fileExtractorMock{
 			extractFunc: func(uri string) (path string, err error) {

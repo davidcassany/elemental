@@ -175,6 +175,16 @@ var _ = Describe("Configuration", Label("configuration"), func() {
 		}))
 	})
 
+	It("Parses dynamic service declarations", func() {
+		Expect(fs.WriteFile(configDir.DynamicServiceFilepath(), []byte("services:\n  k8s-dynamic:\n    enabled: true\n"), 0644)).To(Succeed())
+
+		conf, err := Parse(fs, configDir)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(conf.DynamicServices.K8sDynamicEnabled()).To(BeTrue())
+		Expect(conf.DynamicServices.Services.K8sDynamic.Config).To(Equal("/var/lib/elemental/k8s-dynamic/userdata.yaml"))
+	})
+
 	It("Adds managed HA load balancer charts when apiVIPMode is managed", func() {
 		clusterYAML := strings.Replace(kubernetesClusterYAML, "  apiVIP: 192.168.120.100.sslip.io", "  apiVIP: 192.168.120.100.sslip.io\n  apiVIPMode: managed", 1)
 		Expect(fs.WriteFile(configDir.ClusterFilepath(), []byte(clusterYAML), 0644)).To(Succeed())

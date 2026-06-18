@@ -65,6 +65,102 @@ tasks:
       - task: build-base
       - task: build-iso
 
+  local-merge-mode:
+    desc: One-shot local dev loop — build/verify/push patched Elemental CLI + base + ISO to a local registry (default localhost:5001) under PATCH_VERSION=merge-mode, then build the merge-mode raw image
+    silent: true
+    vars:
+      LOCAL_REGISTRY: '{{default "localhost:5001/ravan" .LOCAL_REGISTRY}}'
+      LOCAL_PATCH_VERSION: '{{default "merge-mode" .LOCAL_PATCH_VERSION}}'
+      LOCAL_ELEMENTAL_IMAGE: '{{.LOCAL_REGISTRY}}/elemental:{{.ELEMENTAL_VERSION}}-{{.LOCAL_PATCH_VERSION}}'
+      LOCAL_HELPER_IMAGE: '{{.LOCAL_REGISTRY}}/elemental-image:{{.LOCAL_PATCH_VERSION}}'
+      LOCAL_TARGET_IMAGE: '{{.LOCAL_REGISTRY}}/base-os-kernel-default:{{.BASE_OS_VERSION}}-{{.LOCAL_PATCH_VERSION}}'
+      LOCAL_TARGET_ISO_IMAGE: '{{.LOCAL_REGISTRY}}/base-os-kernel-default-iso:{{.BASE_OS_VERSION}}-{{.LOCAL_PATCH_VERSION}}'
+      SKIP_VERIFY: '{{default "0" .SKIP_VERIFY}}'
+      SKIP_RAW: '{{default "0" .SKIP_RAW}}'
+    cmds:
+      - |
+        echo "[local-merge-mode] target tags:"
+        echo "  elemental: {{.LOCAL_ELEMENTAL_IMAGE}}"
+        echo "  base:      {{.LOCAL_TARGET_IMAGE}}"
+        echo "  iso:       {{.LOCAL_TARGET_ISO_IMAGE}}"
+      - |
+        echo "[local-merge-mode] clean: removing existing local images and buildx cache"
+        for img in \
+          "{{.ELEMENTAL_IMAGE}}" \
+          "{{.LOCAL_HELPER_IMAGE}}" \
+          "{{.LOCAL_ELEMENTAL_IMAGE}}" \
+          "{{.LOCAL_TARGET_IMAGE}}" \
+          "{{.LOCAL_TARGET_ISO_IMAGE}}"; do
+          if docker image inspect "$img" >/dev/null 2>&1; then
+            echo "  rmi $img"
+            docker rmi -f "$img" >/dev/null || true
+          fi
+        done
+        docker buildx prune --force >/dev/null
+        if [ -d /tmp/elemental-merge-raw/out ]; then
+          echo "  cleaning /tmp/elemental-merge-raw/out"
+          rm -rf /tmp/elemental-merge-raw/out
+        fi
+        if docker volume inspect elemental-merge-build-vol >/dev/null 2>&1; then
+          echo "  removing docker volume elemental-merge-build-vol"
+          docker volume rm -f elemental-merge-build-vol >/dev/null || true
+        fi
+      - task: elemental-image
+      - |
+        echo "[local-merge-mode] pushing helper image to {{.LOCAL_HELPER_IMAGE}}"
+        docker tag "{{.ELEMENTAL_IMAGE}}" "{{.LOCAL_HELPER_IMAGE}}"
+        docker push "{{.LOCAL_HELPER_IMAGE}}" >/dev/null
+      - task: build-elemental
+        vars:
+          TARGET_ELEMENTAL_IMAGE: '{{.LOCAL_ELEMENTAL_IMAGE}}'
+      - task: build-base
+        vars:
+          TARGET_IMAGE: '{{.LOCAL_TARGET_IMAGE}}'
+          ELEMENTAL_IMAGE: '{{.LOCAL_HELPER_IMAGE}}'
+      - task: build-iso
+        vars:
+          TARGET_IMAGE: '{{.LOCAL_TARGET_IMAGE}}'
+          TARGET_ISO_IMAGE: '{{.LOCAL_TARGET_ISO_IMAGE}}'
+          ELEMENTAL_IMAGE: '{{.LOCAL_HELPER_IMAGE}}'
+      - |
+        if [ "{{.SKIP_VERIFY}}" != "1" ]; then
+          task --taskfile "{{.TASKFILE_DIR}}/Taskfile.yaml" verify-base \
+            TARGET_IMAGE="{{.LOCAL_TARGET_IMAGE}}"
+          task --taskfile "{{.TASKFILE_DIR}}/Taskfile.yaml" verify-iso \
+            TARGET_ISO_IMAGE="{{.LOCAL_TARGET_ISO_IMAGE}}" \
+            TARGET_IMAGE="{{.LOCAL_TARGET_IMAGE}}"
+        else
+          echo "[local-merge-mode] SKIP_VERIFY=1, skipping verify-base/verify-iso"
+        fi
+      - task: publish-elemental
+        vars:
+          TARGET_ELEMENTAL_IMAGE: '{{.LOCAL_ELEMENTAL_IMAGE}}'
+      - task: publish-base
+        vars:
+          TARGET_IMAGE: '{{.LOCAL_TARGET_IMAGE}}'
+      - task: publish-iso
+        vars:
+          TARGET_ISO_IMAGE: '{{.LOCAL_TARGET_ISO_IMAGE}}'
+      - |
+        if [ "{{.SKIP_RAW}}" != "1" ]; then
+          echo "[local-merge-mode] building merge-mode raw image"
+          BUILDER_IMAGE="{{.LOCAL_ELEMENTAL_IMAGE}}" \
+            BUILD_BUILDER_IMAGE=0 \
+            CLEAN_BUILDER_IMAGE=0 \
+            "{{.TASKFILE_DIR}}/../scripts/build-merge-raw-in-docker.sh"
+        else
+          echo "[local-merge-mode] SKIP_RAW=1, skipping raw image build"
+        fi
+      - |
+        echo
+        echo "[local-merge-mode] done. Local artifacts:"
+        echo "  {{.LOCAL_ELEMENTAL_IMAGE}}"
+        echo "  {{.LOCAL_TARGET_IMAGE}}"
+        echo "  {{.LOCAL_TARGET_ISO_IMAGE}}"
+        if [ "{{.SKIP_RAW}}" != "1" ]; then
+          echo "  raw: /tmp/elemental-merge-raw/out/merge-mode.raw"
+        fi
+
   build-base:
     desc: Build the patched UC base OS image locally
     silent: true
@@ -86,8 +182,10 @@ tasks:
       - |
         docker buildx build \
           --platform "{{.PLATFORM}}" \
-          --build-arg SOURCE_ISO_IMAGE="{{.SOURCE_ISO_IMAGE}}" \
-          --build-arg ELEMENTAL_IMAGE="{{.ELEMENTAL_IMAGE}}" \
+          --no-cache \
+          --build-arg SOURCE_IMAGE="{{.TARGET_IMAGE}}" \
+            --build-arg SOURCE_ISO_IMAGE="{{.SOURCE_ISO_IMAGE}}" \
+            --build-arg ELEMENTAL_IMAGE="{{.ELEMENTAL_IMAGE}}" \
           -f "{{.TASKFILE_DIR}}/Dockerfile.iso" \
           -t "{{.TARGET_ISO_IMAGE}}" \
           --load \
@@ -121,9 +219,28 @@ tasks:
           echo "verified {{.TARGET_IMAGE}} contains: {{.FIX_STRING}}"
           docker cp "$cid:/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh" "$workdir/elemental-platform-resolver.sh"
           docker cp "$cid:/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.service" "$workdir/elemental-platform-resolver.service"
+          docker cp "$cid:/usr/lib/dracut/modules.d/30elemental-ignition-merge/elemental-ignition-merge.sh" "$workdir/elemental-ignition-merge.sh"
+          docker cp "$cid:/usr/lib/dracut/modules.d/30elemental-ignition-merge/elemental-ignition-merge.service" "$workdir/elemental-ignition-merge.service"
           grep -F 'PLATFORM_HINT' "$workdir/elemental-platform-resolver.sh" >/dev/null
           grep -F 'Before=ignition-fetch-offline.service ignition-fetch.service ignition-disks.service ignition-files.service ignition-complete.target' "$workdir/elemental-platform-resolver.service" >/dev/null
+          grep -F 'elemental-merge' "$workdir/elemental-ignition-merge.sh" >/dev/null
+          grep -F 'Before=ignition-fetch-offline.service ignition-fetch.service ignition-disks.service ignition-files.service ignition-complete.target' "$workdir/elemental-ignition-merge.service" >/dev/null
           echo "verified {{.TARGET_IMAGE}} contains Elemental Platform Hint resolver module"
+          echo "verified {{.TARGET_IMAGE}} contains Elemental Ignition merge module"
+          docker cp "$cid:/usr/lib/modules" "$workdir/modules"
+          initrd="$(find "$workdir/modules" -mindepth 2 -maxdepth 2 -name initrd -type f | head -n1)"
+          if [ -z "$initrd" ]; then
+            echo "missing kernel module initrd in {{.TARGET_IMAGE}}" >&2
+            exit 1
+          fi
+          docker run --rm --platform "{{.PLATFORM}}" \
+            -v "$workdir:/work" \
+            "{{.TARGET_IMAGE}}" /bin/sh -euxc '
+            lsinitrd /work/modules/*/initrd | grep -F elemental-platform-resolver.service >/dev/null
+            lsinitrd /work/modules/*/initrd | grep -F elemental-ignition-merge.service >/dev/null
+            lsinitrd -f usr/lib/elemental/elemental-ignition-merge.sh /work/modules/*/initrd | grep -F select_merge_source >/dev/null
+          '
+          echo "verified {{.TARGET_IMAGE}} kernel module initrd contains merge-mode dracut units"
 
   verify-iso:
     desc: Verify the patched ISO image contains the fixed elemental3ctl relabel code path and SELinux labels
@@ -145,8 +262,7 @@ tasks:
         fi
         docker run --rm --platform "{{.PLATFORM}}" \
           -v "$workdir:/work" \
-          registry.opensuse.org/opensuse/tumbleweed:latest /bin/sh -euxc '
-            zypper --non-interactive install --no-recommends squashfs xorriso binutils gawk policycoreutils >/dev/null
+          "{{.TARGET_IMAGE}}" /bin/sh -euxc '
             xorriso -osirrox on -indev /work/iso/$(basename "$1") -extract /LiveOS/squashfs.img /work/squashfs.img >/dev/null 2>&1
             root="$(mktemp -d)"
             unsquashfs -no-xattrs -d "$root" /work/squashfs.img \
@@ -160,12 +276,16 @@ tasks:
             etc/shadow \
             etc/selinux/config \
             etc/selinux/targeted/contexts/files/file_contexts >/dev/null
-          strings "$root/usr/bin/elemental3ctl" | grep -F "$2" >/dev/null
+            grep -aF "$2" "$root/usr/bin/elemental3ctl" >/dev/null
           test -x "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh"
           test -x "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/module-setup.sh"
           grep -F 'PLATFORM_HINT' "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh" >/dev/null
           grep -F 'WantedBy=initrd.target' "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.service" >/dev/null
-          echo "verified {{.TARGET_ISO_IMAGE}} contains Elemental Platform Hint resolver module"
+            echo "verified {{.TARGET_ISO_IMAGE}} contains Elemental Platform Hint resolver module"
+            lsinitrd "$root"/usr/lib/modules/*/initrd | grep -F elemental-platform-resolver.service >/dev/null
+            lsinitrd "$root"/usr/lib/modules/*/initrd | grep -F elemental-ignition-merge.service >/dev/null
+            lsinitrd -f usr/lib/elemental/elemental-ignition-merge.sh "$root"/usr/lib/modules/*/initrd | grep -F select_merge_source >/dev/null
+            echo "verified {{.TARGET_ISO_IMAGE}} kernel module initrd contains merge-mode dracut units"
           file_contexts="$root/etc/selinux/targeted/contexts/files/file_contexts"
             [ -f "$file_contexts" ] || { echo "missing SELinux file contexts in {{.TARGET_ISO_IMAGE}}" >&2; exit 1; }
             for path in \

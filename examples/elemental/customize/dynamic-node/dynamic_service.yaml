@@ -1,0 +1,5 @@
+services:
+  k8s-dynamic:
+    enabled: true
+    config: /var/lib/elemental/k8s-dynamic/userdata.yaml
+    timeout: 120

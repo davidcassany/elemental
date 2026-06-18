@@ -24,7 +24,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/suse/elemental/v3/pkg/userdata"
+	"github.com/suse/elemental/v3/internal/dynamicdata"
 )
 
 // ButaneTemplateData holds the data available during butane template rendering.
@@ -34,7 +34,7 @@ type ButaneTemplateData struct {
 }
 
 // RenderButaneTemplate renders a butane template with user data.
-func RenderButaneTemplate(butaneTemplate string, userData *userdata.UserData) (string, error) {
+func RenderButaneTemplate(butaneTemplate string, userData *dynamicdata.Data) (string, error) {
 	if butaneTemplate == "" {
 		return "", fmt.Errorf("butane template is empty")
 	}
@@ -43,8 +43,8 @@ func RenderButaneTemplate(butaneTemplate string, userData *userdata.UserData) (s
 		UserData: make(map[string]any),
 	}
 
-	if userData != nil && userData.Data != nil {
-		data.UserData = userData.Data
+	if userData != nil && userData.Values != nil {
+		data.UserData = userData.Values
 	}
 
 	funcs := template.FuncMap{

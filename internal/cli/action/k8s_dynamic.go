@@ -29,11 +29,11 @@ import (
 
 	cmdpkg "github.com/suse/elemental/v3/internal/cli/cmd"
 	"github.com/suse/elemental/v3/internal/config"
+	"github.com/suse/elemental/v3/internal/dynamicdata"
 	"github.com/suse/elemental/v3/internal/image"
 	"github.com/suse/elemental/v3/internal/template"
 	"github.com/suse/elemental/v3/pkg/sys"
 	"github.com/suse/elemental/v3/pkg/sys/vfs"
-	"github.com/suse/elemental/v3/pkg/userdata"
 )
 
 const (
@@ -41,58 +41,53 @@ const (
 	k8sDynamicDeployResourcesMarkerPath = "/run/elemental/k8s-dynamic-deploy-resources"
 )
 
-// K8sDynamicApply fetches user data and renders Kubernetes config templates.
-// This runs AFTER ignition-firstboot, before k8s-config-installer.
-func K8sDynamicApply(ctx context.Context, cmd *cli.Command) error {
-	var s *sys.System
+// K8sDynamicApply reads Dynamic Node User Data from --config and renders Kubernetes config templates.
+// It runs AFTER ignition-firstboot, before k8s-config-installer.
+func K8sDynamicApply(_ context.Context, cmd *cli.Command) error {
 	args := &cmdpkg.K8sDynamicArgs
 	if cmd.Root().Metadata == nil || cmd.Root().Metadata["system"] == nil {
 		return fmt.Errorf("error setting up initial configuration")
 	}
-	s = cmd.Root().Metadata["system"].(*sys.System)
-
+	s := cmd.Root().Metadata["system"].(*sys.System)
 	s.Logger().Info("Starting k8s-dynamic apply action")
 
-	// Use default config - no config file needed
-	// The userdata provider will auto-detect the cloud environment
-	cfg := userdata.DefaultConfig()
-	cfg.Enabled = true
-
-	// Apply flag overrides
-	if args.Provider != "" {
-		cfg.Providers = []string{args.Provider}
-	}
-	if args.Timeout > 0 {
-		cfg.Timeout = args.Timeout
-	}
-	if args.Retries > 0 {
-		cfg.Retries = args.Retries
+	if args.ConfigPath == "" {
+		return fmt.Errorf("--config is required")
 	}
 
-	s.Logger().Info("Fetching user data with config: providers=%v, timeout=%d, retries=%d",
-		cfg.Providers, cfg.Timeout, cfg.Retries)
-
-	// Fetch user data from cloud provider
-	userData, err := userdata.FetchUserData(ctx, s, cfg)
+	configPath := filepath.Clean(args.ConfigPath)
+	raw, err := s.FS().ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("fetching user data: %w", err)
+		status := k8sDynamicStatus{
+			UserData: userDataStatus{Error: fmt.Sprintf("reading Dynamic Node User Data %s: %v", args.ConfigPath, err)},
+		}
+		_ = writeK8sDynamicStatus(s, status)
+		return fmt.Errorf("reading Dynamic Node User Data %s: %w", args.ConfigPath, err)
 	}
 
-	s.Logger().Info("User data fetched from provider: %s", userData.Provider)
+	userData, err := dynamicdata.Parse(raw, args.ConfigPath)
+	if err != nil {
+		status := k8sDynamicStatus{
+			UserData: userDataStatus{Error: err.Error()},
+		}
+		_ = writeK8sDynamicStatus(s, status)
+		return err
+	}
+	s.Logger().Info("Dynamic Node User Data read from: %s", userData.Source)
 
 	k8sConfigDir := filepath.Join("/", image.KubernetesPath())
 	_, err = applyDynamicConfigurationFromUserData(s, k8sConfigDir, userData)
 	return err
 }
 
-func applyDynamicConfigurationFromUserData(s *sys.System, k8sConfigDir string, userData *userdata.UserData) (k8sDynamicStatus, error) {
+func applyDynamicConfigurationFromUserData(s *sys.System, k8sConfigDir string, userData *dynamicdata.Data) (k8sDynamicStatus, error) {
 	status := k8sDynamicStatus{
 		UserData:  userDataStatus{Fetched: userData != nil},
 		Helm:      helmStatus{OverridesApplied: true},
 		Resources: resourcesStatus{DeployResources: true},
 	}
 	if userData != nil {
-		status.UserData.Provider = userData.Provider
+		status.UserData.Source = userData.Source
 	}
 
 	if err := writeHostnameFromUserData(s, userData); err != nil {
@@ -170,13 +165,13 @@ func applyDynamicConfigurationFromUserData(s *sys.System, k8sConfigDir string, u
 // - init.yaml: for init server (rke2.init: true)
 // - server.yaml: for joining servers (rke2.type: server, default)
 // - agent.yaml: for agents (rke2.type: agent)
-func writeRKE2ConfigFromUserData(s *sys.System, k8sConfigDir string, userData *userdata.UserData) error {
-	if userData == nil || userData.Data == nil {
+func writeRKE2ConfigFromUserData(s *sys.System, k8sConfigDir string, userData *dynamicdata.Data) error {
+	if userData == nil || userData.Values == nil {
 		s.Logger().Info("No user data available for RKE2 config generation")
 		return nil
 	}
 
-	rke2Data, ok := userData.Data["rke2"].(map[string]any)
+	rke2Data, ok := userData.Values["rke2"].(map[string]any)
 	if !ok {
 		s.Logger().Info("No rke2 section in user data")
 		return nil
@@ -269,7 +264,7 @@ func writeRKE2ConfigFromUserData(s *sys.System, k8sConfigDir string, userData *u
 }
 
 // renderK8sTemplates finds all .tpl files in the directory and renders them.
-func renderK8sTemplates(s *sys.System, dir string, userData *userdata.UserData) (int, error) {
+func renderK8sTemplates(s *sys.System, dir string, userData *dynamicdata.Data) (int, error) {
 	// Check if directory exists
 	isDir, err := vfs.IsDir(s.FS(), dir)
 	if err != nil {
@@ -314,7 +309,7 @@ func renderK8sTemplates(s *sys.System, dir string, userData *userdata.UserData) 
 }
 
 // renderTemplateFile reads a template file, renders it with userdata, and writes the output.
-func renderTemplateFile(s *sys.System, templatePath, outputPath string, userData *userdata.UserData) error {
+func renderTemplateFile(s *sys.System, templatePath, outputPath string, userData *dynamicdata.Data) error {
 	// Read template file
 	templateBytes, err := s.FS().ReadFile(templatePath)
 	if err != nil {
@@ -338,7 +333,7 @@ func renderTemplateFile(s *sys.System, templatePath, outputPath string, userData
 }
 
 // writeK8sDynamicDeployScript generates the deployment script with node type from user data.
-func writeK8sDynamicDeployScript(s *sys.System, k8sConfigDir string, userData *userdata.UserData) error {
+func writeK8sDynamicDeployScript(s *sys.System, k8sConfigDir string, userData *dynamicdata.Data) error {
 	// Ensure kubernetes config directory exists
 	if err := vfs.MkdirAll(s.FS(), k8sConfigDir, vfs.DirPerm); err != nil {
 		return fmt.Errorf("creating kubernetes config directory: %w", err)
@@ -348,8 +343,8 @@ func writeK8sDynamicDeployScript(s *sys.System, k8sConfigDir string, userData *u
 	isInit := false
 	var apiVIP4, apiVIP6, apiHost string
 
-	if userData != nil && userData.Data != nil {
-		if rke2Data, ok := userData.Data["rke2"].(map[string]any); ok {
+	if userData != nil && userData.Values != nil {
+		if rke2Data, ok := userData.Values["rke2"].(map[string]any); ok {
 			if t, ok := rke2Data["type"].(string); ok && t != "" {
 				nodeType = t
 			}
@@ -411,7 +406,7 @@ func writeK8sDynamicDeployScript(s *sys.System, k8sConfigDir string, userData *u
 	return nil
 }
 
-func writeResourceDeployMarkerFromUserData(s *sys.System, userData *userdata.UserData) (resourcesStatus, error) {
+func writeResourceDeployMarkerFromUserData(s *sys.System, userData *dynamicdata.Data) (resourcesStatus, error) {
 	deployResources := deployResourcesFromUserData(userData)
 
 	if err := vfs.MkdirAll(s.FS(), filepath.Dir(k8sDynamicDeployResourcesMarkerPath), vfs.DirPerm); err != nil {
@@ -434,12 +429,12 @@ func writeResourceDeployMarkerFromUserData(s *sys.System, userData *userdata.Use
 	return resourcesStatus{DeployResources: true}, nil
 }
 
-func deployResourcesFromUserData(userData *userdata.UserData) bool {
-	if userData == nil || userData.Data == nil {
+func deployResourcesFromUserData(userData *dynamicdata.Data) bool {
+	if userData == nil || userData.Values == nil {
 		return true
 	}
 
-	elementalData, ok := userData.Data["elemental"].(map[string]any)
+	elementalData, ok := userData.Values["elemental"].(map[string]any)
 	if !ok {
 		return true
 	}
@@ -459,12 +454,12 @@ func deployResourcesFromUserData(userData *userdata.UserData) bool {
 
 // writeHostnameFromUserData sets the system hostname from user data.
 // It writes the hostname to /etc/hostname if the top-level "hostname" field is present.
-func writeHostnameFromUserData(s *sys.System, userData *userdata.UserData) error {
-	if userData == nil || userData.Data == nil {
+func writeHostnameFromUserData(s *sys.System, userData *dynamicdata.Data) error {
+	if userData == nil || userData.Values == nil {
 		return nil
 	}
 
-	hostname, ok := userData.Data["hostname"].(string)
+	hostname, ok := userData.Values["hostname"].(string)
 	if !ok || hostname == "" {
 		s.Logger().Info("No hostname in user data")
 		return nil
@@ -489,12 +484,12 @@ func writeHostnameFromUserData(s *sys.System, userData *userdata.UserData) error
 
 // writeSSHKeysFromUserData processes the users section of user data
 // and writes SSH authorized keys to each user's home directory.
-func writeSSHKeysFromUserData(s *sys.System, userData *userdata.UserData) error {
-	if userData == nil || userData.Data == nil {
+func writeSSHKeysFromUserData(s *sys.System, userData *dynamicdata.Data) error {
+	if userData == nil || userData.Values == nil {
 		return nil
 	}
 
-	usersRaw, ok := userData.Data["users"].([]any)
+	usersRaw, ok := userData.Values["users"].([]any)
 	if !ok || len(usersRaw) == 0 {
 		s.Logger().Info("No users section in user data")
 		return nil

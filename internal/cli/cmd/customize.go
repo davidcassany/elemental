@@ -44,7 +44,7 @@ func NewCustomizeCommand(appName string, action func(context.Context, *cli.Comma
 		Usage:     "Customize an image based on a release",
 		UsageText: fmt.Sprintf("%s customize", appName),
 		Before: func(ctx context.Context, _ *cli.Command) (context.Context, error) {
-			modes := []string{"", "embedded", "split"}
+			modes := []string{"", "embedded", "split", "merge"}
 			if !slices.Contains(modes, CustomizeArgs.Mode) {
 				return ctx, cli.Exit("Error: Unsupported --mode option.", 1)
 			}
@@ -74,8 +74,8 @@ func NewCustomizeCommand(appName string, action func(context.Context, *cli.Comma
 			},
 			&cli.StringFlag{
 				Name: "mode",
-				Usage: "Customization mode, 'embedded' (config partition within image) or " +
-					"'split' (configuration directory separate from the image)",
+				Usage: "Customization mode, 'embedded' (config partition within image), 'split' (separate config directory), or " +
+					"'merge' (embedded base Ignition merged with provider Ignition at first boot)",
 				Destination: &CustomizeArgs.Mode,
 				Value:       "embedded",
 			},

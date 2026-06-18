@@ -29,9 +29,9 @@ type k8sDynamicStatus struct {
 }
 
 type userDataStatus struct {
-	Provider string `yaml:"provider,omitempty"`
-	Fetched  bool   `yaml:"fetched"`
-	Error    string `yaml:"error,omitempty"`
+	Source  string `yaml:"source,omitempty"`
+	Fetched bool   `yaml:"fetched"`
+	Error   string `yaml:"error,omitempty"`
 }
 
 type applyStatus struct {

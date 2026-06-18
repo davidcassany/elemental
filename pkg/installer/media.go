@@ -754,17 +754,27 @@ func (i Media) customizeDisk(tempDir string, d *deployment.Deployment, mappedFil
 		}
 	}
 
-	parts := []repart.Partition{
-		{
-			Partition: esp,
-			CopyFiles: []string{
+	disk := d.GetSystemDisk()
+	if disk == nil {
+		disk = d.Disks[0]
+	}
+
+	parts := make([]repart.Partition, 0, len(disk.Partitions))
+	for _, part := range disk.Partitions {
+		if part == nil {
+			continue
+		}
+		repartPart := repart.Partition{Partition: part}
+		switch part.Role {
+		case deployment.EFI:
+			repartPart.CopyFiles = []string{
 				fmt.Sprintf("%s/boot:/boot", isoDir), fmt.Sprintf("%s/EFI:/EFI", isoDir),
-			},
-		}, {
-			Partition: recovery,
-			CopyFiles: []string{fmt.Sprintf("%s:/", isoDir)},
-			Excludes:  []string{filepath.Join(isoDir, "boot"), filepath.Join(isoDir, "EFI")},
-		},
+			}
+		case deployment.Recovery:
+			repartPart.CopyFiles = []string{fmt.Sprintf("%s:/", isoDir)}
+			repartPart.Excludes = []string{filepath.Join(isoDir, "boot"), filepath.Join(isoDir, "EFI")}
+		}
+		parts = append(parts, repartPart)
 	}
 	return repart.CreateDiskImage(i.s, i.outputFile, i.rawDiskSize, parts)
 }

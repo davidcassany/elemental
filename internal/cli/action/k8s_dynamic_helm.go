@@ -13,10 +13,10 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/suse/elemental/v3/internal/dynamicdata"
 	"github.com/suse/elemental/v3/internal/image"
 	"github.com/suse/elemental/v3/pkg/sys"
 	"github.com/suse/elemental/v3/pkg/sys/vfs"
-	"github.com/suse/elemental/v3/pkg/userdata"
 )
 
 type runtimeHelmResult struct {
@@ -36,7 +36,7 @@ type runtimeHelmChartFile struct {
 	Resource runtimeHelmChart
 }
 
-func applyRuntimeHelmOverrides(s *sys.System, k8sConfigDir string, userData *userdata.UserData) (runtimeHelmResult, error) {
+func applyRuntimeHelmOverrides(s *sys.System, k8sConfigDir string, userData *dynamicdata.Data) (runtimeHelmResult, error) {
 	overrides, ok := runtimeHelmOverrides(userData)
 	charts, err := readRuntimeHelmCharts(s, filepath.Join(k8sConfigDir, filepath.Base(image.HelmPath())))
 	if err != nil {
@@ -90,12 +90,12 @@ func applyRuntimeHelmOverrides(s *sys.System, k8sConfigDir string, userData *use
 	return result, nil
 }
 
-func runtimeHelmOverrides(userData *userdata.UserData) (map[string]any, bool) {
-	if userData == nil || userData.Data == nil {
+func runtimeHelmOverrides(userData *dynamicdata.Data) (map[string]any, bool) {
+	if userData == nil || userData.Values == nil {
 		return nil, false
 	}
 
-	helmData, ok := userData.Data["helm"].(map[string]any)
+	helmData, ok := userData.Values["helm"].(map[string]any)
 	if !ok {
 		return nil, false
 	}

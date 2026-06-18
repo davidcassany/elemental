@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Validate inline JavaScript with: node scripts/check-config-viz.js -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -163,9 +164,9 @@
       <span class="icon">🔥</span> butane.yaml <span class="badge badge-opt">optional</span>
     </div>
 
-    <!-- userdata.yaml -->
+    <!-- dynamic_service.yaml -->
     <div class="tree-item tree-indent-1" onclick="showPanel('userdata')" id="tree-userdata">
-      <span class="icon">☁️</span> userdata.yaml <span class="badge badge-opt">optional</span>
+      <span class="icon">☁️</span> dynamic_service.yaml <span class="badge badge-opt">optional</span>
     </div>
 
     <!-- kubernetes/cluster.yaml -->
@@ -233,251 +234,148 @@ panels.overview = `
 <p class="file-path">The input to <code>elemental3 customize</code></p>
 
 <div class="desc">
-  The configuration directory defines the <strong>desired state</strong> of the image you want to build.
-  It covers five main areas: product release reference, OS configuration (install + Butane/Ignition),
-  Kubernetes setup, networking, and custom scripts. Click any file in the sidebar to explore its API.
+  The configuration directory defines the <strong>desired state</strong> of the image to build.
+  Current schema <code>v0</code> is selected in <code>install.yaml</code>. The directory covers release
+  selection, OS installation and Ignition input, optional dynamic user data, Kubernetes, networking,
+  and custom firstboot content.
 </div>
 
 <div class="yaml-block"><span class="yc"># Directory structure</span>
 <span class="yk">./</span>
-├── <span class="ys">release.yaml</span>            <span class="yc"># Product release reference</span>
-├── <span class="ys">install.yaml</span>            <span class="yc"># Disk, bootloader, crypto config</span>
-├── <span class="ys">butane.yaml</span>             <span class="yc"># OS config → translated to Ignition</span>
-├── <span class="ys">userdata.yaml</span>           <span class="yc"># Dynamic node roles via cloud metadata</span>
+├── <span class="ys">install.yaml</span>            <span class="yc"># Required schema, disk, bootloader, crypto config</span>
+├── <span class="ys">release.yaml</span>            <span class="yc"># Required release manifest reference</span>
+├── <span class="ys">butane.yaml</span>             <span class="yc"># Optional OS config translated to Ignition</span>
+├── <span class="ys">userdata.yaml</span>           <span class="yc"># Optional dynamic node/user-data fetching</span>
 ├── <span class="yk">kubernetes/</span>
-│   ├── <span class="ys">cluster.yaml</span>     <span class="yc"># Helm charts, manifests, nodes</span>
+│   ├── <span class="ys">cluster.yaml</span>       <span class="yc"># Helm charts, manifests, nodes, API VIPs</span>
 │   ├── <span class="yk">config/</span>
-│   │   ├── <span class="ys">server.yaml</span>     <span class="yc"># RKE2 control-plane config</span>
-│   │   └── <span class="ys">agent.yaml</span>      <span class="yc"># RKE2 worker config</span>
+│   │   ├── <span class="ys">server.yaml</span>   <span class="yc"># RKE2 server config</span>
+│   │   ├── <span class="ys">agent.yaml</span>    <span class="yc"># RKE2 agent config</span>
+│   │   └── <span class="ys">registries.yaml</span> <span class="yc"># RKE2 private/embedded registry config</span>
 │   ├── <span class="yk">helm/values/</span>
-│   │   └── <span class="ys">rancher.yaml</span>    <span class="yc"># Custom Helm values</span>
-│   └── <span class="yk">manifests/</span>
-│       ├── <span class="ys">ip-pool.yaml</span>    <span class="yc"># MetalLB IPAddressPool</span>
-│       └── <span class="ys">rke2-ingress.yaml</span>
+│   │   └── <span class="ys">rancher.yaml</span>  <span class="yc"># Values referenced by valuesFile</span>
+│   └── <span class="yk">manifests/</span>         <span class="yc"># Local Kubernetes manifests</span>
 ├── <span class="yk">network/</span>
-│   └── <span class="ys">*.yaml</span>              <span class="yc"># nmstate files per host -OR-</span>
-│   └── <span class="ys">configure-network.sh</span> <span class="yc"># custom network script</span>
+│   └── <span class="ys">*.yaml</span>             <span class="yc"># nmstate files per host -OR-</span>
+│   └── <span class="ys">configure-network.sh</span>
 └── <span class="yk">custom/</span>
-    ├── <span class="yk">scripts/</span>             <span class="yc"># Firstboot scripts (50-99 range)</span>
-    └── <span class="yk">files/</span>               <span class="yc"># Arbitrary files for firstboot</span></div>
+    ├── <span class="yk">scripts/</span>           <span class="yc"># Firstboot scripts</span>
+    └── <span class="yk">files/</span>             <span class="yc"># Files available to scripts</span></div>
+
+<div class="callout">
+  <strong>Parsing rule:</strong> <code>install.yaml</code> is read first to load <code>schema: v0</code>. Unknown YAML fields are rejected by the v0 parser.
+</div>
 `;
 
 // ────────────────────── RELEASE.YAML ──────────────────────
 panels.release = `
 <h2>release.yaml</h2>
-<p class="file-path">Product Release Reference — defines the base platform and enabled components</p>
+<p class="file-path">Product Release Reference — base platform and enabled components</p>
 
 <div class="desc">
-  Elemental lets you base your image on a <strong>product release manifest</strong> that bundles aligned
-  component versions. The <code>release.yaml</code> references this manifest and selects which Core Platform or
-  product components to enable, including Kubernetes, Helm charts, and optional systemd extensions.
+  <code>release.yaml</code> points Elemental at a release manifest and selects optional components from it.
+  The current v0 API supports <code>manifestURI</code> and <code>components</code>; product names are not configured here.
 </div>
 
 <div class="section">
-  <div class="section-title"><span class="dot" style="background:var(--purple)"></span> Example (from single-node)</div>
-  <div class="yaml-block"><span class="yk">name</span>: <span class="ys">suse-product</span>
-<span class="yk">manifestURI</span>: <span class="ys">file://./suse-product-manifest.yaml</span>
-<span class="yc"># manifestURI: oci://registry.suse.com/beta/uc/release-manifest:0.6_rke2_1.35</span>
+  <div class="section-title"><span class="dot" style="background:var(--purple)"></span> Example (current single-node)</div>
+  <div class="yaml-block"><span class="yk">manifestURI</span>: <span class="ys">file://./suse-solution-manifest.yaml</span>
+<span class="yc"># manifestURI: oci://registry.suse.com/suse-solution/release-manifest:0.0.1</span>
 <span class="yk">components</span>:
-  <span class="yk">kubernetes</span>: {}          <span class="yc"># enable Kubernetes installation from core release</span>
+  <span class="yk">kubernetes</span>: {}       <span class="yc"># enable Kubernetes installation from core release</span>
   <span class="yk">helm</span>:
-    - <span class="yk">chart</span>: <span class="ys">metallb</span>        <span class="yc"># from core release</span>
-    - <span class="yk">chart</span>: <span class="ys">rancher</span>        <span class="yc"># from product release</span>
+    - <span class="yk">chart</span>: <span class="ys">metallb</span>     <span class="yc"># core release</span>
+    - <span class="yk">chart</span>: <span class="ys">rancher</span>     <span class="yc"># solution release</span>
       <span class="yk">valuesFile</span>: <span class="ys">rancher.yaml</span>
-    - <span class="yk">chart</span>: <span class="ys">private-chart</span>
-      <span class="yk">credentials</span>:
-        <span class="yk">username</span>: <span class="ys">user</span>
-        <span class="yk">password</span>: <span class="ys">pass</span></div>
+  <span class="yk">systemd</span>:
+    - <span class="yk">extension</span>: <span class="ys">example-extension</span></div>
 </div>
 
 <div class="section">
   <div class="section-title"><span class="dot" style="background:var(--blue)"></span> Field Reference</div>
   <table class="ref-table">
     <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-    <tr><td><code>name</code></td><td><span class="tag tag-opt">optional</span></td><td>Product name all configs will reference</td></tr>
-    <tr><td><code>manifestURI</code></td><td><span class="tag tag-req">required</span></td><td>URI to release manifest. Supports <code>file://</code> and <code>oci://</code></td></tr>
-    <tr><td><code>components.kubernetes</code></td><td><span class="tag tag-opt">optional</span></td><td>Set, even as <code>{}</code>, to explicitly enable Kubernetes installation from the core release</td></tr>
-    <tr><td><code>components.helm[].chart</code></td><td><span class="tag tag-req">required</span></td><td>Helm chart name to enable from the manifest</td></tr>
-    <tr><td><code>components.helm[].valuesFile</code></td><td><span class="tag tag-opt">optional</span></td><td>Values file name (must be in <code>kubernetes/helm/values/</code>)</td></tr>
-    <tr><td><code>components.helm[].credentials</code></td><td><span class="tag tag-req">conditional</span></td><td>Username/password for authenticated chart repositories or registries</td></tr>
-    <tr><td><code>components.systemd[].extension</code></td><td><span class="tag tag-req">required if present</span></td><td>Optional systemd sysext to enable from the manifest</td></tr>
+    <tr><td><code>manifestURI</code></td><td><span class="tag tag-req">required</span></td><td>Release manifest URI. Supports local <code>file://</code> and OCI <code>oci://</code> sources.</td></tr>
+    <tr><td><code>components.kubernetes</code></td><td><span class="tag tag-opt">optional</span></td><td>Set, even as <code>{}</code>, to explicitly enable Kubernetes from the release.</td></tr>
+    <tr><td><code>components.helm[].chart</code></td><td><span class="tag tag-req">required</span></td><td>Chart component name from the release manifest.</td></tr>
+    <tr><td><code>components.helm[].valuesFile</code></td><td><span class="tag tag-opt">optional</span></td><td>File name under <code>kubernetes/helm/values/</code>.</td></tr>
+    <tr><td><code>components.helm[].credentials</code></td><td><span class="tag tag-opt">optional</span></td><td><code>username</code> and <code>password</code> for authenticated chart sources.</td></tr>
+    <tr><td><code>components.systemd[].extension</code></td><td><span class="tag tag-req">required</span></td><td>System extension name from the release manifest.</td></tr>
   </table>
-</div>
-
-<div class="callout">
-  <strong>How it works:</strong> The manifest URI points to a YAML file (or OCI image) that lists all available
-  components with their versions, images, and dependencies. Elemental resolves which to install based on your
-  <code>components</code> selection, automatically pulling the correct container images.
 </div>
 `;
 
-// ────────────────────── USERDATA.YAML ──────────────────────
-panels.userdata = `
-<h2>userdata.yaml</h2>
-<p class="file-path">Dynamic Node Configuration — cloud-native role assignment at boot time</p>
+// ────────────────────── DYNAMIC_SERVICE.YAML ──────────────────────
+panels.dynamicservice = `
+<h2>dynamic_service.yaml</h2>
+<p class="file-path">Dynamic Node Configuration — fetch boot-time user data</p>
 
 <div class="desc">
-  Enables <strong>dynamic node configuration</strong> where each node's role (init server, joining server, or agent)
-  is determined at <strong>boot time</strong> via cloud provider metadata or a local filesystem, instead of being
-  baked into the image. This means a <strong>single image</strong> works for all cluster node types.
+  <code>dynamic_service.yaml</code> enables file-driven runtime services. In merge mode, Provider Ignition writes Dynamic Node User Data to <code>/var/lib/elemental/k8s-dynamic/userdata.yaml</code> and the service reads it with an explicit <code>--config</code> path.
 </div>
 
 <div class="section">
-  <div class="section-title"><span class="dot" style="background:var(--cyan)"></span> userdata.yaml</div>
-  <div class="yaml-block"><span class="yk">enabled</span>: <span class="yn">true</span>
-<span class="yk">providers</span>: [<span class="ys">"auto"</span>]   <span class="yc"># auto-detect: aws, azure, gcp, filesystem</span>
+  <div class="section-title"><span class="dot" style="background:var(--cyan)"></span> Configuration File</div>
+  <div class="yaml-block"><span class="yc"># Code defaults when enabled: config=/var/lib/elemental/k8s-dynamic/userdata.yaml, timeout=120</span>
+<span class="yk">enabled</span>: <span class="yn">true</span>
+<span class="yk">config</span>: <span class="ys">"/var/lib/elemental/k8s-dynamic/userdata.yaml"</span>
 <span class="yk">timeout</span>: <span class="yn">120</span>
-<span class="yk">retries</span>: <span class="yn">5</span></div>
+<span class="yk">timeout</span>: <span class="yn">120</span></div>
 </div>
 
 <div class="section">
   <div class="section-title"><span class="dot" style="background:var(--blue)"></span> Field Reference</div>
   <table class="ref-table">
     <tr><th>Field</th><th>Status</th><th>Description</th></tr>
-    <tr><td><code>enabled</code></td><td><span class="tag tag-req">required</span></td><td><code>true</code> to enable dynamic node config</td></tr>
-    <tr><td><code>providers</code></td><td><span class="tag tag-opt">optional</span></td><td>List of providers: <code>auto</code>, <code>aws</code>, <code>azure</code>, <code>gcp</code>, <code>filesystem</code></td></tr>
-    <tr><td><code>timeout</code></td><td><span class="tag tag-opt">optional</span></td><td>Seconds to wait for user data fetch. Code default: 60; example config sets 120</td></tr>
-    <tr><td><code>retries</code></td><td><span class="tag tag-opt">optional</span></td><td>Number of fetch retries. Code default: 3; example config sets 5</td></tr>
+    <tr><td><code>enabled</code></td><td><span class="tag tag-opt">optional</span></td><td>Enable user-data fetching. Default: <code>false</code>.</td></tr>
+    <tr><td><code>config</code></td><td><span class="tag tag-opt">optional</span></td><td>Dynamic Node User Data file path. Default: <code>/var/lib/elemental/k8s-dynamic/userdata.yaml</code>.</td></tr>
+    <tr><td><code>timeout</code></td><td><span class="tag tag-opt">optional</span></td><td>Seconds to wait for a provider. Default: <code>60</code>; dynamic-node example sets <code>120</code>.</td></tr>
+    
   </table>
 </div>
 
 <div class="section">
   <div class="section-title"><span class="dot" style="background:var(--purple)"></span> Static vs Dynamic Configuration</div>
   <table class="ref-table">
-    <tr><th>Aspect</th><th>Static (hostname-based)</th><th>Dynamic (userdata)</th></tr>
-    <tr><td>Role assignment</td><td>Build time via <code>kubernetes/cluster.yaml</code> nodes list</td><td>Boot time via cloud metadata</td></tr>
-    <tr><td>Token</td><td>Baked into <code>kubernetes/config/</code></td><td>Passed via user data (more secure)</td></tr>
-    <tr><td>Image count</td><td>One per topology</td><td><strong>Single image for all roles</strong></td></tr>
-    <tr><td>Best for</td><td>Bare-metal, air-gapped</td><td>Cloud (AWS, Azure, GCP), Terraform</td></tr>
-    <tr><td>Auto-scaling</td><td>No</td><td>Yes</td></tr>
+    <tr><th>Aspect</th><th>Static</th><th>Dynamic</th></tr>
+    <tr><td>Role assignment</td><td>Declared in <code>kubernetes/cluster.yaml</code> <code>nodes</code>.</td><td>Supplied at boot through user data.</td></tr>
+    <tr><td>Cluster resources</td><td>Helm charts and manifests deploy from build-time config.</td><td>Same config can be paired with <code>elemental.kubernetes.deployResources</code> in runtime user data.</td></tr>
+    <tr><td>Image reuse</td><td>Best for known bare-metal or fixed topologies.</td><td>Best for cloud or Terraform-style node creation.</td></tr>
   </table>
 </div>
 
 <div class="section">
-  <div class="section-title"><span class="dot" style="background:var(--green)"></span> User Data Format (provided at instance launch)</div>
-
-  <div style="margin-bottom:0.75rem;">
-    <div style="font-size:0.78rem; font-weight:600; color:var(--green); margin-bottom:0.4rem;">Init Node (bootstraps cluster)</div>
-    <div class="yaml-block"><span class="yk">hostname</span>: <span class="ys">k8s-init.example.com</span>
+  <div class="section-title"><span class="dot" style="background:var(--green)"></span> Runtime User Data Example</div>
+  <div class="yaml-block"><span class="yk">hostname</span>: <span class="ys">dynamic-server.example.com</span>
 <span class="yk">rke2</span>:
   <span class="yk">type</span>: <span class="ys">server</span>
   <span class="yk">init</span>: <span class="yn">true</span>
-  <span class="yk">token</span>: <span class="ys">my-cluster-token-12345</span>
-  <span class="yk">tls_san</span>:
-    - <span class="yn">10.0.0.100</span>
-    - <span class="ys">k8s.example.com</span></div>
-  </div>
-
-  <div style="margin-bottom:0.75rem;">
-    <div style="font-size:0.78rem; font-weight:600; color:var(--blue); margin-bottom:0.4rem;">Joining Server (additional control plane)</div>
-    <div class="yaml-block"><span class="yk">hostname</span>: <span class="ys">k8s-server-2.example.com</span>
-<span class="yk">rke2</span>:
-  <span class="yk">type</span>: <span class="ys">server</span>
-  <span class="yk">server</span>: <span class="ys">https://10.0.0.100:9345</span>
-  <span class="yk">token</span>: <span class="ys">my-cluster-token-12345</span></div>
-  </div>
-
-  <div style="margin-bottom:0.75rem;">
-    <div style="font-size:0.78rem; font-weight:600; color:var(--orange); margin-bottom:0.4rem;">Agent (worker)</div>
-    <div class="yaml-block"><span class="yk">hostname</span>: <span class="ys">k8s-agent-1.example.com</span>
-<span class="yk">rke2</span>:
-  <span class="yk">type</span>: <span class="ys">agent</span>
-  <span class="yk">server</span>: <span class="ys">https://10.0.0.100:9345</span>
-  <span class="yk">token</span>: <span class="ys">my-cluster-token-12345</span></div>
-  </div>
-</div>
-
-<div class="section">
-  <div class="section-title"><span class="dot" style="background:var(--orange)"></span> User Data Fields</div>
-  <table class="ref-table">
-    <tr><th>Field</th><th>Status</th><th>Description</th></tr>
-    <tr><td><code>hostname</code></td><td><span class="tag tag-opt">optional</span></td><td>System hostname (written to <code>/etc/hostname</code>)</td></tr>
-    <tr><td><code>rke2.type</code></td><td><span class="tag tag-opt">optional</span></td><td><code>server</code> (default) or <code>agent</code></td></tr>
-    <tr><td><code>rke2.init</code></td><td><span class="tag tag-opt">optional</span></td><td><code>true</code> for the cluster bootstrap node</td></tr>
-    <tr><td><code>rke2.token</code></td><td><span class="tag tag-req">conditional</span></td><td>Cluster join token — required for joining nodes</td></tr>
-    <tr><td><code>rke2.server</code></td><td><span class="tag tag-req">conditional</span></td><td>API server URL — required for joining servers &amp; agents</td></tr>
-    <tr><td><code>rke2.tls_san</code></td><td><span class="tag tag-opt">optional</span></td><td>Additional TLS SANs (init server only)</td></tr>
-    <tr><td><code>rke2.api_vip4</code></td><td><span class="tag tag-opt">optional</span></td><td>API VIP (IPv4) for <code>/etc/hosts</code></td></tr>
-    <tr><td><code>rke2.api_vip6</code></td><td><span class="tag tag-opt">optional</span></td><td>API VIP (IPv6) for <code>/etc/hosts</code></td></tr>
-    <tr><td><code>rke2.api_host</code></td><td><span class="tag tag-opt">optional</span></td><td>API hostname for <code>/etc/hosts</code></td></tr>
-  </table>
-</div>
-
-<div class="section">
-  <div class="section-title"><span class="dot" style="background:var(--pink)"></span> Boot Sequence (Dynamic Mode)</div>
-  <div class="pipeline" style="flex-wrap:wrap;">
-    <div class="pipe-step" style="border-color:rgba(56,189,248,0.4);">
-      <div class="pipe-label" style="color:var(--blue);">Network online</div>
-      <div class="pipe-sub">Wait for connectivity</div>
-    </div>
-    <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(34,211,238,0.4);">
-      <div class="pipe-label" style="color:var(--cyan);">Fetch user data</div>
-      <div class="pipe-sub">AWS IMDS / Azure / GCP / fs</div>
-    </div>
-    <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(167,139,250,0.4);">
-      <div class="pipe-label" style="color:var(--purple);">Generate config</div>
-      <div class="pipe-sub">init.yaml / server.yaml / agent.yaml</div>
-    </div>
-    <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(251,146,60,0.4);">
-      <div class="pipe-label" style="color:var(--orange);">Deploy script</div>
-      <div class="pipe-sub">k8s_conf_deploy.sh</div>
-    </div>
-    <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(250,204,21,0.4);">
-      <div class="pipe-label" style="color:var(--yellow);">Install RKE2</div>
-      <div class="pipe-sub">/opt/k8s/install</div>
-    </div>
-    <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(74,222,128,0.4);">
-      <div class="pipe-label" style="color:var(--green);">RKE2 start</div>
-      <div class="pipe-sub">server or agent service</div>
-    </div>
-  </div>
-</div>
-
-<div class="section">
-  <div class="section-title"><span class="dot" style="background:var(--yellow)"></span> Deployment Examples</div>
-
-  <div style="margin-bottom:0.75rem;">
-    <div style="font-size:0.78rem; font-weight:600; color:var(--yellow); margin-bottom:0.4rem;">AWS EC2</div>
-    <div class="yaml-block"><span class="yc"># Pass user data at instance launch</span>
-<span class="ys">aws ec2 run-instances</span> \\
-  <span class="ys">--image-id</span> ami-xxxxx \\
-  <span class="ys">--user-data</span> file://init-node-userdata.yaml \\
-  <span class="ys">--instance-type</span> t3.large</div>
-  </div>
-
-  <div style="margin-bottom:0.75rem;">
-    <div style="font-size:0.78rem; font-weight:600; color:var(--yellow); margin-bottom:0.4rem;">On-Premises (cidata ISO)</div>
-    <div class="yaml-block"><span class="yc"># Create cidata ISO with user data</span>
-<span class="ys">mkisofs</span> -output cidata.iso -volid cidata -joliet -rock user-data
-
-<span class="yc"># Boot VM with ISO attached</span>
-<span class="ys">qemu-system-x86_64</span> \\
-  -drive file=node.qcow2,format=qcow2 \\
-  -cdrom cidata.iso</div>
-  </div>
+  <span class="yk">token</span>: <span class="ys">example-token</span>
+<span class="yk">elemental</span>:
+  <span class="yk">kubernetes</span>:
+    <span class="yk">deployResources</span>: <span class="yn">true</span>
+<span class="yk">helm</span>:
+  <span class="yk">values</span>:
+    <span class="yk">rancher</span>:
+      <span class="yk">hostname</span>: <span class="ys">rancher.example.com</span>
+<span class="yk">users</span>:
+  - <span class="yk">name</span>: <span class="ys">root</span>
+    <span class="yk">ssh_authorized_keys</span>:
+      - <span class="ys">ssh-ed25519 AAAA... root@example</span></div>
 </div>
 
 <div class="callout">
-  <strong>HA Cluster workflow:</strong>
-  1) Deploy init node with <code>init: true</code> and wait for ready.
-  2) Deploy additional servers with same token, one at a time.
-  3) Deploy agents in parallel — they join as workers.
+  <strong>Dynamic-node example:</strong> <code>examples/elemental/customize/dynamic-node</code> omits the static <code>nodes</code> list from <code>cluster.yaml</code>; node role data is expected from the provider at boot.
 </div>
 `;
 
 // ────────────────────── INSTALL.YAML ──────────────────────
 panels.install = `
 <h2>install.yaml</h2>
-<p class="file-path">OS Installation — disk layout, bootloader, kernel, crypto</p>
+<p class="file-path">OS Installation — schema, disk layout, bootloader, kernel, crypto</p>
 
 <div class="desc">
-  Configures <strong>how the OS is installed</strong> onto the target media. This is the only file that controls
-  the physical disk layout. Choose between <code>raw</code> (disk image) or <code>iso</code> mode.
+  <code>install.yaml</code> is required and is read first. It selects the configuration schema and configures how the OS is installed onto raw image or ISO target media.
 </div>
 
 <div class="section">
@@ -495,7 +393,7 @@ panels.install = `
   <div class="yaml-block"><span class="yk">schema</span>: <span class="ys">v0</span>
 <span class="yk">bootloader</span>: <span class="ys">grub</span>
 <span class="yk">kernelCmdLine</span>: <span class="ys">"console=ttyS0 loglevel=3"</span>
-<span class="yk">cryptoPolicy</span>: <span class="ys">fips</span>
+<span class="yk">serialConsole</span>: <span class="yn">true</span>
 <span class="yk">iso</span>:
   <span class="yk">device</span>: <span class="ys">"/dev/sda"</span></div>
 </div>
@@ -504,20 +402,15 @@ panels.install = `
   <div class="section-title"><span class="dot" style="background:var(--blue)"></span> Field Reference</div>
   <table class="ref-table">
     <tr><th>Field</th><th>Status</th><th>Description</th></tr>
-    <tr><td><code>schema</code></td><td><span class="tag tag-req">required</span></td><td>Configuration schema version; current examples use <code>v0</code></td></tr>
-    <tr><td><code>bootloader</code></td><td><span class="tag tag-req">required</span></td><td><code>grub</code> or <code>none</code></td></tr>
-    <tr><td><code>kernelCmdLine</code></td><td><span class="tag tag-opt">optional</span></td><td>Extra kernel params (appended after Elemental's essential ones)</td></tr>
-    <tr><td><code>serialConsole</code></td><td><span class="tag tag-opt">optional</span></td><td>Enable serial console in bootloader (bool)</td></tr>
-    <tr><td><code>cryptoPolicy</code></td><td><span class="tag tag-opt">optional</span></td><td><code>fips</code> or <code>default</code> — auto-appends FIPS kernel args</td></tr>
-    <tr><td><code>raw.diskSize</code></td><td><span class="tag tag-req">required*</span></td><td>Disk image size. Pattern: <code>^[1-9]\\d*[KMGT]$</code>. Default: 10G / 12G</td></tr>
-    <tr><td><code>iso.device</code></td><td><span class="tag tag-req">required†</span></td><td>Target disk for ISO install (e.g. <code>/dev/sda</code>)</td></tr>
+    <tr><td><code>schema</code></td><td><span class="tag tag-req">required</span></td><td>Configuration schema version. Current parser supports <code>v0</code>.</td></tr>
+    <tr><td><code>bootloader</code></td><td><span class="tag tag-opt">optional</span></td><td><code>grub</code> or <code>none</code>.</td></tr>
+    <tr><td><code>kernelCmdLine</code></td><td><span class="tag tag-opt">optional</span></td><td>Extra kernel parameters appended to Elemental's required arguments.</td></tr>
+    <tr><td><code>serialConsole</code></td><td><span class="tag tag-opt">optional</span></td><td>Boolean serial-console bootloader setting.</td></tr>
+    <tr><td><code>cryptoPolicy</code></td><td><span class="tag tag-opt">optional</span></td><td><code>fips</code> or <code>default</code>. Examples use <code>fips</code>; remove it when the target OS or nodes are not FIPS-ready.</td></tr>
+    <tr><td><code>raw.diskSize</code></td><td><span class="tag tag-req">required*</span></td><td>Raw image disk size. Pattern: <code>^[1-9]\d*[KMGT]$</code>.</td></tr>
+    <tr><td><code>iso.device</code></td><td><span class="tag tag-req">required†</span></td><td>Target disk for ISO installation, for example <code>/dev/sda</code>.</td></tr>
   </table>
-  <p style="font-size:0.7rem; color:var(--muted); margin-top:0.5rem;">* for raw mode &nbsp; † for iso mode — mutually exclusive</p>
-</div>
-
-<div class="callout warn">
-  <strong>FIPS examples:</strong> Repository examples enable <code>cryptoPolicy: fips</code> by default.
-  Remove it when the target OS or every cluster node is not FIPS-ready.
+  <p style="font-size:0.7rem; color:var(--muted); margin-top:0.5rem;">* raw mode &nbsp; † iso mode</p>
 </div>
 `;
 
@@ -617,16 +510,14 @@ panels.kubernetes = `
 <p class="file-path">Kubernetes Cluster Definition — Helm, manifests, nodes, networking</p>
 
 <div class="desc">
-  Defines the <strong>Kubernetes cluster topology</strong> and the workloads deployed onto it.
-  This is where you declare Helm charts to install, remote manifests to apply (<code>kubectl apply</code>-style),
-  static multi-node topology, and the cluster API endpoint. In dynamic mode, omit <code>nodes</code> and let
-  <code>userdata.yaml</code> plus instance user data select the node role at boot.
+  Declares remote manifests, Helm chart repositories and charts, optional static nodes, and optional API VIP settings.
+  Dynamic-node configurations can omit <code>nodes</code> and provide role data through runtime user data instead.
 </div>
 
 <div class="section">
   <div class="section-title"><span class="dot" style="background:var(--purple)"></span> Multi-Node Example</div>
   <div class="yaml-block"><span class="yk">manifests</span>:
-  - <span class="ys">https://raw.githubusercontent.com/.../local-path-storage.yaml</span>
+  - <span class="ys">https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml</span>
 <span class="yk">helm</span>:
   <span class="yk">charts</span>:
     - <span class="yk">name</span>: <span class="ys">"neuvector-crd"</span>
@@ -641,75 +532,40 @@ panels.kubernetes = `
     - <span class="yk">name</span>: <span class="ys">"rancher-charts"</span>
       <span class="yk">url</span>: <span class="ys">"https://charts.rancher.io"</span>
 <span class="yk">nodes</span>:
-- <span class="yk">hostname</span>: <span class="ys">node1.example</span>
-  <span class="yk">type</span>: <span class="ys">server</span>
-  <span class="yk">init</span>: <span class="yn">true</span>
-- <span class="yk">hostname</span>: <span class="ys">node2.example</span>
-  <span class="yk">type</span>: <span class="ys">server</span>
-- <span class="yk">hostname</span>: <span class="ys">node3.example</span>
-  <span class="yk">type</span>: <span class="ys">server</span>
-- <span class="yk">hostname</span>: <span class="ys">node4.example</span>
-  <span class="yk">type</span>: <span class="ys">agent</span>
+  - <span class="yk">hostname</span>: <span class="ys">node1.example</span>
+    <span class="yk">type</span>: <span class="ys">server</span>
+    <span class="yk">init</span>: <span class="yn">true</span>
+  - <span class="yk">hostname</span>: <span class="ys">node2.example</span>
+    <span class="yk">type</span>: <span class="ys">server</span>
+  - <span class="yk">hostname</span>: <span class="ys">node3.example</span>
+    <span class="yk">type</span>: <span class="ys">server</span>
+  - <span class="yk">hostname</span>: <span class="ys">node4.example</span>
+    <span class="yk">type</span>: <span class="ys">agent</span>
 <span class="yk">network</span>:
   <span class="yk">apiVIP</span>: <span class="yn">192.168.122.100</span>
   <span class="yk">apiHost</span>: <span class="ys">192.168.122.100.sslip.io</span></div>
 </div>
 
 <div class="section">
-  <div class="section-title"><span class="dot" style="background:var(--cyan)"></span> Cluster Topology</div>
-  <div class="cluster-viz">
-    <div class="node-card server init">
-      <div class="node-label">Node 1</div>
-      <div class="node-name">node1.example</div>
-      <div class="node-role"><span class="role-tag role-server">server</span> <span class="role-tag role-init">init</span></div>
-    </div>
-    <div class="node-card server">
-      <div class="node-label">Node 2</div>
-      <div class="node-name">node2.example</div>
-      <div class="node-role"><span class="role-tag role-server">server</span></div>
-    </div>
-    <div class="node-card server">
-      <div class="node-label">Node 3</div>
-      <div class="node-name">node3.example</div>
-      <div class="node-role"><span class="role-tag role-server">server</span></div>
-    </div>
-    <div class="node-card agent">
-      <div class="node-label">Node 4</div>
-      <div class="node-name">node4.example</div>
-      <div class="node-role"><span class="role-tag role-agent">agent</span></div>
-    </div>
-  </div>
-  <div style="font-size:0.7rem; color:var(--muted); text-align:center;">apiVIP: 192.168.122.100 (MetalLB LoadBalancer) → apiHost: 192.168.122.100.sslip.io</div>
-</div>
-
-<div class="section">
   <div class="section-title"><span class="dot" style="background:var(--blue)"></span> Field Reference</div>
   <table class="ref-table">
     <tr><th>Field</th><th>Status</th><th>Description</th></tr>
-    <tr><td><code>manifests[]</code></td><td><span class="tag tag-opt">optional</span></td><td>URLs to remote K8s manifests (applied like <code>kubectl apply -f</code>)</td></tr>
-    <tr><td><code>helm.charts[].name</code></td><td><span class="tag tag-req">required</span></td><td>Helm chart name from repository</td></tr>
-    <tr><td><code>helm.charts[].version</code></td><td><span class="tag tag-req">required</span></td><td>Chart version string</td></tr>
-    <tr><td><code>helm.charts[].targetNamespace</code></td><td><span class="tag tag-req">required</span></td><td>Namespace to deploy into</td></tr>
-    <tr><td><code>helm.charts[].repositoryName</code></td><td><span class="tag tag-req">required</span></td><td>Must match a <code>repositories[].name</code></td></tr>
-    <tr><td><code>helm.charts[].valuesFile</code></td><td><span class="tag tag-opt">optional</span></td><td>Name of file in <code>kubernetes/helm/values/</code></td></tr>
-    <tr><td><code>helm.repositories[].name</code></td><td><span class="tag tag-req">required</span></td><td>Repo name (referenced by charts)</td></tr>
-    <tr><td><code>helm.repositories[].url</code></td><td><span class="tag tag-req">required</span></td><td>Helm repo URL</td></tr>
-    <tr><td><code>helm.repositories[].credentials</code></td><td><span class="tag tag-req">conditional</span></td><td>Username/password for authenticated chart repositories or registries</td></tr>
-    <tr><td><code>nodes[].hostname</code></td><td><span class="tag tag-req">required</span></td><td>FQDN — used for MAC-based host identification</td></tr>
-    <tr><td><code>nodes[].type</code></td><td><span class="tag tag-req">required</span></td><td><code>server</code> (control-plane) or <code>agent</code> (worker)</td></tr>
-    <tr><td><code>nodes[].init</code></td><td><span class="tag tag-opt">optional</span></td><td>Cluster initializer (defaults to first server)</td></tr>
-    <tr><td><code>network.apiVIP</code></td><td><span class="tag tag-req">required*</span></td><td>IPv4 for cluster LB (MetalLB)</td></tr>
-    <tr><td><code>network.apiVIP6</code></td><td><span class="tag tag-req">required*</span></td><td>IPv6 alternative to apiVIP</td></tr>
-    <tr><td><code>network.apiHost</code></td><td><span class="tag tag-opt">optional</span></td><td>Domain for cluster API access</td></tr>
+    <tr><td><code>manifests[]</code></td><td><span class="tag tag-opt">optional</span></td><td>Remote Kubernetes manifest URLs.</td></tr>
+    <tr><td><code>helm.charts[].name</code></td><td><span class="tag tag-req">required</span></td><td>Chart name in the referenced repository.</td></tr>
+    <tr><td><code>helm.charts[].version</code></td><td><span class="tag tag-req">required</span></td><td>Chart version.</td></tr>
+    <tr><td><code>helm.charts[].targetNamespace</code></td><td><span class="tag tag-req">required</span></td><td>Namespace where the chart is installed.</td></tr>
+    <tr><td><code>helm.charts[].repositoryName</code></td><td><span class="tag tag-req">required</span></td><td>Must match one <code>helm.repositories[].name</code>.</td></tr>
+    <tr><td><code>helm.charts[].valuesFile</code></td><td><span class="tag tag-opt">optional</span></td><td>Values file under <code>kubernetes/helm/values/</code>.</td></tr>
+    <tr><td><code>helm.repositories[].url</code></td><td><span class="tag tag-req">required</span></td><td>Chart repository URL.</td></tr>
+    <tr><td><code>helm.repositories[].credentials</code></td><td><span class="tag tag-opt">optional</span></td><td><code>username</code> and <code>password</code> for authenticated repositories.</td></tr>
+    <tr><td><code>helm.repositories[].insecureSkipTLSVerify</code></td><td><span class="tag tag-opt">optional</span></td><td>Allow untrusted TLS certificates for the repository.</td></tr>
+    <tr><td><code>nodes[].hostname</code></td><td><span class="tag tag-req">required</span></td><td>FQDN-style hostname used to select node config.</td></tr>
+    <tr><td><code>nodes[].type</code></td><td><span class="tag tag-req">required</span></td><td><code>server</code> or <code>agent</code>.</td></tr>
+    <tr><td><code>nodes[].init</code></td><td><span class="tag tag-opt">optional</span></td><td>Cluster initializer; if absent, the first server is selected.</td></tr>
+    <tr><td><code>network.apiVIP</code></td><td><span class="tag tag-opt">optional</span></td><td>IPv4 API VIP. When present, MetalLB and endpoint-copier operator are enabled from the release.</td></tr>
+    <tr><td><code>network.apiVIP6</code></td><td><span class="tag tag-opt">optional</span></td><td>IPv6 API VIP alternative.</td></tr>
+    <tr><td><code>network.apiHost</code></td><td><span class="tag tag-opt">optional</span></td><td>API hostname.</td></tr>
   </table>
-  <p style="font-size:0.7rem; color:var(--muted); margin-top:0.5rem;">* One of apiVIP or apiVIP6 required for multi-node clusters</p>
-</div>
-
-<div class="callout">
-  <strong>Dynamic nodes:</strong> For cloud or Terraform-style deployments, keep Helm charts and manifests here but
-  leave out the <code>nodes</code> list. <code>elemental-k8s-dynamic.service</code> reads user data at boot and
-  generates <code>init.yaml</code>, <code>server.yaml</code>, or <code>agent.yaml</code>. The generated deploy script
-  installs RKE2 from embedded artifacts in <code>/opt/k8s/install</code> before starting the node service.
 </div>
 `;
 
@@ -719,54 +575,63 @@ panels.k8sdir = `
 <p class="file-path">Local Kubernetes configs, Helm values, and manifests</p>
 
 <div class="desc">
-  The <code>kubernetes/</code> directory contains <code>cluster.yaml</code> plus optional <strong>local files</strong>.
-  This is where you put RKE2 config, Helm chart values, and local manifests that get baked into the image.
+  The <code>kubernetes/</code> directory contains <code>cluster.yaml</code> plus optional local files baked into the image.
+  Local manifests are applied alongside remote manifests, and RKE2 config files are copied for the relevant node type.
 </div>
 
 <div class="yaml-block"><span class="yk">kubernetes/</span>
-├── <span class="ys">cluster.yaml</span>     <span class="yc"># Helm charts, manifests, nodes, API VIP</span>
+├── <span class="ys">cluster.yaml</span>        <span class="yc"># Helm charts, manifests, nodes, API VIPs</span>
 ├── <span class="yk">config/</span>
-│   ├── <span class="ys">server.yaml</span>     <span class="yc"># RKE2 config for control-plane nodes</span>
-│   └── <span class="ys">agent.yaml</span>      <span class="yc"># RKE2 config for worker nodes</span>
+│   ├── <span class="ys">server.yaml</span>      <span class="yc"># RKE2 config for servers</span>
+│   ├── <span class="ys">agent.yaml</span>       <span class="yc"># RKE2 config for agents</span>
+│   └── <span class="ys">registries.yaml</span>  <span class="yc"># RKE2 private/embedded registry config</span>
 ├── <span class="yk">helm/</span>
 │   └── <span class="yk">values/</span>
-│       └── <span class="ys">rancher.yaml</span>  <span class="yc"># Values for the "rancher" Helm chart</span>
+│       └── <span class="ys">rancher.yaml</span> <span class="yc"># Referenced by valuesFile</span>
 └── <span class="yk">manifests/</span>
-    ├── <span class="ys">ip-pool.yaml</span>      <span class="yc"># MetalLB IPAddressPool CR</span>
-    ├── <span class="ys">l2-adv.yaml</span>       <span class="yc"># MetalLB L2 Advertisement</span>
+    ├── <span class="ys">ip-pool.yaml</span>
+    ├── <span class="ys">l2-adv.yaml</span>
     └── <span class="ys">rke2-ingress-config.yaml</span></div>
 
 <div class="callout">
-  <strong>Merge behavior:</strong> Local manifests in <code>kubernetes/manifests/</code> are combined with
-  the remote manifests listed in <code>kubernetes/cluster.yaml</code>. Both get applied to the cluster at first boot.
+  <strong>Merge behavior:</strong> Local manifests in <code>kubernetes/manifests/</code> are combined with remote manifests from <code>kubernetes/cluster.yaml</code> and applied on first boot.
 </div>
 `;
 
 // ────────────────────── K8S CONFIG ──────────────────────
 panels.k8sconfig = `
 <h2>kubernetes/config/</h2>
-<p class="file-path">RKE2 Configuration — server and agent YAML</p>
+<p class="file-path">RKE2 Configuration — server, agent, and registries YAML</p>
 
 <div class="desc">
-  Provides <strong>RKE2 runtime configuration</strong> that gets placed on control-plane and worker nodes.
-  These files are passed directly to the RKE2 process on each node type.
+  Files in <code>kubernetes/config/</code> are passed to RKE2. <code>server.yaml</code> applies to server nodes,
+  <code>agent.yaml</code> applies to agent nodes, and <code>registries.yaml</code> applies to all nodes when present.
 </div>
 
 <div class="section">
-  <div class="section-title"><span class="dot" style="background:var(--blue)"></span> server.yaml (control-plane)</div>
+  <div class="section-title"><span class="dot" style="background:var(--blue)"></span> server.yaml (servers)</div>
   <div class="yaml-block"><span class="yk">token</span>: <span class="ys">totally-not-generated-one</span>
-<span class="yk">selinux</span>: <span class="yn">true</span></div>
+<span class="yk">selinux</span>: <span class="yn">true</span>
+<span class="yk">embedded-registry</span>: <span class="yn">true</span></div>
 </div>
 
 <div class="section">
-  <div class="section-title"><span class="dot" style="background:var(--orange)"></span> agent.yaml (workers)</div>
+  <div class="section-title"><span class="dot" style="background:var(--orange)"></span> agent.yaml (agents)</div>
   <div class="yaml-block"><span class="yk">token</span>: <span class="ys">totally-not-generated-one</span>
-<span class="yk">debug</span>: <span class="yn">true</span></div>
+<span class="yk">debug</span>: <span class="yn">true</span>
+<span class="yk">embedded-registry</span>: <span class="yn">true</span></div>
+</div>
+
+<div class="section">
+  <div class="section-title"><span class="dot" style="background:var(--green)"></span> registries.yaml (all nodes)</div>
+  <div class="yaml-block"><span class="yk">mirrors</span>:
+  <span class="yk">registry.suse.com</span>:
+    <span class="yk">endpoint</span>:
+      - <span class="ys">https://registry.suse.com/v2</span></div>
 </div>
 
 <div class="callout warn">
-  <strong>Token must match:</strong> The <code>token</code> in both <code>server.yaml</code> and <code>agent.yaml</code>
-  must be identical for workers to join the cluster. In production, use a securely generated token.
+  <strong>Token must match:</strong> Static server and agent configs must use the same token so workers can join the cluster.
 </div>
 `;
 
@@ -776,8 +641,8 @@ panels.k8shelm = `
 <p class="file-path">Custom Helm Chart Values</p>
 
 <div class="desc">
-  Place <strong>Helm values files</strong> here. Each file is referenced by name via the <code>valuesFile</code>
-  field in <code>kubernetes/cluster.yaml</code> or <code>release.yaml</code>. The file name (without path) must match.
+  Place Helm values files here when a <code>valuesFile</code> is referenced by <code>release.yaml</code> or <code>kubernetes/cluster.yaml</code>.
+  The value is a file name only, not a path.
 </div>
 
 <div class="section">
@@ -789,7 +654,7 @@ panels.k8shelm = `
 <div class="helm-list">
   <div class="helm-card">
     <span class="helm-icon">⎈</span>
-    <div><span class="helm-name">rancher</span> <span class="helm-ver">v2.13.0</span></div>
+    <div><span class="helm-name">rancher</span> <span class="helm-ver">release component</span></div>
     <span class="helm-ns">cattle-system</span>
   </div>
   <div class="helm-card">
@@ -804,12 +669,7 @@ panels.k8shelm = `
   </div>
   <div class="helm-card">
     <span class="helm-icon">⎈</span>
-    <div><span class="helm-name">cert-manager</span> <span class="helm-ver">v1.17.2</span></div>
-    <span class="helm-ns">cert-manager</span>
-  </div>
-  <div class="helm-card">
-    <span class="helm-icon">⎈</span>
-    <div><span class="helm-name">metallb</span> <span class="helm-ver">(from core)</span></div>
+    <div><span class="helm-name">metallb</span> <span class="helm-ver">release component</span></div>
     <span class="helm-ns">metallb-system</span>
   </div>
 </div>
@@ -992,7 +852,7 @@ panels['boot-timeline'] = `
 
   <div class="tl-item active">
     <div class="tl-title" style="color:var(--yellow);">6. Firstboot — RKE2 Bootstrap</div>
-    <div class="tl-desc">RKE2 starts from static <code>kubernetes/config/server.yaml</code> or <code>agent.yaml</code>. If <code>userdata.yaml</code> is enabled, <code>elemental-k8s-dynamic.service</code> fetches user data, generates <code>init.yaml</code>, <code>server.yaml</code>, or <code>agent.yaml</code>, then the deploy script installs RKE2 from <code>/opt/k8s/install</code> before enabling the node service.</div>
+    <div class="tl-desc">RKE2 starts from static <code>kubernetes/config/server.yaml</code> or <code>agent.yaml</code>. If <code>dynamic_service.yaml</code> is enabled in merge mode, <code>elemental-k8s-dynamic.service</code> reads Dynamic Node User Data from its configured file and generates <code>init.yaml</code>, <code>server.yaml</code>, or <code>agent.yaml</code>, then the deploy script installs RKE2 from <code>/opt/k8s/install</code> before enabling the node service.</div>
     <div class="tl-files">
       <span class="tl-file" onclick="showPanel('k8sconfig')">config/server.yaml</span>
       <span class="tl-file" onclick="showPanel('k8sconfig')">config/agent.yaml</span>
@@ -1056,28 +916,28 @@ panels.pipeline = `
   <div class="section-title"><span class="dot" style="background:var(--purple)"></span> Build Time — <code>elemental3 customize</code></div>
   <div class="pipeline">
     <div class="pipe-step" style="border-color:rgba(167,139,250,0.4);">
-      <div class="pipe-label" style="color:var(--purple);">release.yaml</div>
-      <div class="pipe-sub">Resolve manifest</div>
+      <div class="pipe-label" style="color:var(--purple);">install.yaml</div>
+      <div class="pipe-sub">Load schema v0</div>
     </div>
     <span class="pipe-arrow">→</span>
     <div class="pipe-step" style="border-color:rgba(56,189,248,0.4);">
-      <div class="pipe-label" style="color:var(--blue);">Pull OCI images</div>
-      <div class="pipe-sub">OS + K8s artifacts + sysexts</div>
+      <div class="pipe-label" style="color:var(--blue);">release.yaml</div>
+      <div class="pipe-sub">Resolve manifest</div>
     </div>
     <span class="pipe-arrow">→</span>
     <div class="pipe-step" style="border-color:rgba(251,146,60,0.4);">
-      <div class="pipe-label" style="color:var(--orange);">butane → ignition</div>
-      <div class="pipe-sub">Transpile config</div>
+      <div class="pipe-label" style="color:var(--orange);">butane.yaml</div>
+      <div class="pipe-sub">Transpile Ignition</div>
     </div>
     <span class="pipe-arrow">→</span>
     <div class="pipe-step" style="border-color:rgba(74,222,128,0.4);">
-      <div class="pipe-label" style="color:var(--green);">Partition & pack</div>
-      <div class="pipe-sub">EFI+RECOVERY+CONFIG+SYSTEM</div>
+      <div class="pipe-label" style="color:var(--green);">K8s assets</div>
+      <div class="pipe-sub">Charts, config, manifests</div>
     </div>
     <span class="pipe-arrow">→</span>
     <div class="pipe-step" style="border-color:rgba(250,204,21,0.4);">
-      <div class="pipe-label" style="color:var(--yellow);">output.raw</div>
-      <div class="pipe-sub">+ sha256 checksum</div>
+      <div class="pipe-label" style="color:var(--yellow);">output image</div>
+      <div class="pipe-sub">raw or ISO target</div>
     </div>
   </div>
 </div>
@@ -1085,67 +945,36 @@ panels.pipeline = `
 <div class="section">
   <div class="section-title"><span class="dot" style="background:var(--green)"></span> Boot Time — Firstboot Sequence</div>
   <div class="pipeline" style="flex-wrap:wrap;">
-    <div class="pipe-step" style="border-color:rgba(56,189,248,0.4);">
-      <div class="pipe-label" style="color:var(--blue);">GRUB</div>
-      <div class="pipe-sub">EFI → kernel</div>
-    </div>
+    <div class="pipe-step" style="border-color:rgba(56,189,248,0.4);"><div class="pipe-label" style="color:var(--blue);">GRUB</div><div class="pipe-sub">kernel args</div></div>
     <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(167,139,250,0.4);">
-      <div class="pipe-label" style="color:var(--purple);">Network</div>
-      <div class="pipe-sub">nmstate / script</div>
-    </div>
+    <div class="pipe-step" style="border-color:rgba(167,139,250,0.4);"><div class="pipe-label" style="color:var(--purple);">Network</div><div class="pipe-sub">nmstate or script</div></div>
     <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(251,146,60,0.4);">
-      <div class="pipe-label" style="color:var(--orange);">Ignition</div>
-      <div class="pipe-sub">users, files, units</div>
-    </div>
+    <div class="pipe-step" style="border-color:rgba(251,146,60,0.4);"><div class="pipe-label" style="color:var(--orange);">Ignition</div><div class="pipe-sub">users, files, units</div></div>
     <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(74,222,128,0.4);">
-      <div class="pipe-label" style="color:var(--green);">Switch root</div>
-      <div class="pipe-sub">btrfs RO + RW vols</div>
-    </div>
+    <div class="pipe-step" style="border-color:rgba(74,222,128,0.4);"><div class="pipe-label" style="color:var(--green);">Switch root</div><div class="pipe-sub">RO root + RW vols</div></div>
     <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(34,211,238,0.4);">
-      <div class="pipe-label" style="color:var(--cyan);">User data</div>
-      <div class="pipe-sub">optional dynamic role</div>
-    </div>
+    <div class="pipe-step" style="border-color:rgba(34,211,238,0.4);"><div class="pipe-label" style="color:var(--cyan);">User data</div><div class="pipe-sub">optional dynamic role</div></div>
     <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(250,204,21,0.4);">
-      <div class="pipe-label" style="color:var(--yellow);">Custom scripts</div>
-      <div class="pipe-sub">50-99-*.sh</div>
-    </div>
+    <div class="pipe-step" style="border-color:rgba(244,114,182,0.4);"><div class="pipe-label" style="color:var(--pink);">RKE2</div><div class="pipe-sub">server or agent</div></div>
     <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(250,204,21,0.4);">
-      <div class="pipe-label" style="color:var(--yellow);">RKE2</div>
-      <div class="pipe-sub">server / agent</div>
-    </div>
-    <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(244,114,182,0.4);">
-      <div class="pipe-label" style="color:var(--pink);">Helm + Manifests</div>
-      <div class="pipe-sub">kubectl apply</div>
-    </div>
-    <span class="pipe-arrow">→</span>
-    <div class="pipe-step" style="border-color:rgba(45,212,191,0.5);">
-      <div class="pipe-label" style="color:var(--teal);">Ready</div>
-      <div class="pipe-sub">Cluster up</div>
-    </div>
+    <div class="pipe-step" style="border-color:rgba(250,204,21,0.4);"><div class="pipe-label" style="color:var(--yellow);">Helm + manifests</div><div class="pipe-sub">cluster resources</div></div>
   </div>
 </div>
 
 <div class="section">
-  <div class="section-title"><span class="dot" style="background:var(--orange)"></span> What configures what</div>
+  <div class="section-title"><span class="dot" style="background:var(--cyan)"></span> What configures what</div>
   <table class="ref-table">
-    <tr><th>Config File</th><th>Controls</th><th>When Applied</th></tr>
-    <tr><td><code>release.yaml</code></td><td>Which OS, sysexts, and Helm charts to include</td><td>Build time</td></tr>
-    <tr><td><code>install.yaml</code></td><td>Disk layout, bootloader, kernel params, FIPS</td><td>Build time</td></tr>
-    <tr><td><code>butane.yaml</code></td><td>Users, SSH keys, files, systemd units</td><td>Firstboot (initrd)</td></tr>
-    <tr><td><code>userdata.yaml</code></td><td>Enable dynamic node role fetching via AWS, Azure, GCP, or filesystem user data</td><td>Firstboot (after network)</td></tr>
-    <tr><td><code>network/*.yaml</code></td><td>Static IPs, routes, DNS per host</td><td>Firstboot (initrd)</td></tr>
-    <tr><td><code>custom/scripts/</code></td><td>Arbitrary setup tasks</td><td>Firstboot (post switch-root)</td></tr>
-    <tr><td><code>kubernetes/cluster.yaml</code></td><td>Cluster topology, Helm charts, remote manifests</td><td>Firstboot (RKE2 running)</td></tr>
-    <tr><td><code>kubernetes/config/</code></td><td>RKE2 runtime config (token, SELinux, etc.)</td><td>Firstboot (RKE2 start)</td></tr>
-    <tr><td><code>kubernetes/manifests/</code></td><td>Local K8s resources (CRDs, configs)</td><td>Firstboot (cluster ready)</td></tr>
-    <tr><td><code>kubernetes/helm/values/</code></td><td>Helm chart customizations</td><td>Firstboot (chart install)</td></tr>
+    <tr><th>Config</th><th>Controls</th><th>When Applied</th></tr>
+    <tr><td><code>install.yaml</code></td><td>Schema, disk target, bootloader, kernel params, crypto policy</td><td>Build time</td></tr>
+    <tr><td><code>release.yaml</code></td><td>Release manifest, Kubernetes enablement, release Helm charts, system extensions</td><td>Build time</td></tr>
+    <tr><td><code>butane.yaml</code></td><td>Ignition input for users, files, storage, and systemd units</td><td>Firstboot initrd</td></tr>
+    <tr><td><code>dynamic_service.yaml</code></td><td>Optional file-driven runtime service declaration</td><td>Firstboot after Provider Ignition writes runtime files</td></tr>
+    <tr><td><code>network/</code></td><td>nmstate host configs or <code>configure-network.sh</code></td><td>Firstboot initrd</td></tr>
+    <tr><td><code>custom/scripts/</code></td><td>Custom firstboot scripts</td><td>Firstboot after switch-root</td></tr>
+    <tr><td><code>kubernetes/cluster.yaml</code></td><td>Remote manifests, Helm charts, static nodes, API VIPs</td><td>Firstboot with RKE2</td></tr>
+    <tr><td><code>kubernetes/config/</code></td><td>RKE2 server, agent, and registry configuration</td><td>RKE2 start</td></tr>
+    <tr><td><code>kubernetes/manifests/</code></td><td>Local Kubernetes resources</td><td>Cluster resource deploy</td></tr>
+    <tr><td><code>kubernetes/helm/values/</code></td><td>Helm values referenced by <code>valuesFile</code></td><td>Chart install</td></tr>
   </table>
 </div>
 `;

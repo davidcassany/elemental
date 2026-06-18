@@ -1,0 +1,252 @@
+calhost:~ # 
+<xmox|cidata|PLATFORM_HINT|failed|error|No config' | tail -250
+[    2.228212] localhost systemd[1]: Starting Catalyst Live SELinux Relabel...
+[    2.886826] localhost systemd[1]: catalyst-live-relabel.service: Deactivated successfully.
+[    2.886964] localhost systemd[1]: Finished Catalyst Live SELinux Relabel.
+[    2.888087] localhost systemd[1]: catalyst-live-relabel.service: Consumed 589ms CPU time, 69.1M memory peak.
+[    2.909784] localhost dracut-pre-pivot[811]: mount: /sysroot: fsconfig() failed: overlay: No changes allowed in reconfigure.
+[    2.909784] localhost dracut-pre-pivot[811]:        dmesg(1) may have more information after failed mount system call.
+[    3.915395] localhost systemd[1]: Ignition (delete config) skipped, no trigger condition checks were met.
+[    3.972870] localhost systemd[1]: Platform Persistent Storage Archival skipped, unmet condition check ConditionDirectoryNotEmpty=/sys/fs/pstore
+[    4.603056] localhost kernel: input: PC Speaker as /devices/platform/pcspkr/input/input5
+[    4.731152] localhost systemd[1]: kbdsettings.service: Failed with result 'signal'.
+[    4.785608] localhost irqbalance[1002]: thermal: failed to receive messages.
+[    4.785890] localhost irqbalance[1002]: Failed to initialize thermal events.
+[    5.164105] localhost.localdomain systemd[1]: Starting Elemental Autoinstall...
+[    5.272339] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=info msg="Starting reset action"
+[    5.272339] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Reset action called with args: &{OperatingSystemImage: Target: Description: ConfigScript: Overlay: CreateBootEntry:true Bootloader:grub KernelCmdline: Verify:true Local:false CryptoPolicy: Snapshotter:snapper}"
+[    5.272839] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=info msg="Loaded deployment description file: /run/initramfs/live/Install/install.yaml"
+[    5.272839] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' udevadm settle'"
+[    5.284247] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' lsblk -p -b -n -J --output LABEL,PARTLABEL,PARTUUID,SIZE,FSTYPE,MOUNTPOINTS,PATH,PKNAME,TYPE'"
+[    5.295681] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=info msg="Running reset process"
+[    5.296178] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: 'PATH=/sbin:/usr/sbin:/usr/bin:/bin  systemd-repart --json=pretty --definitions=/tmp/elemental-repart.d410609416 --dry-run=no --empty=allow /dev/sda'"
+[    5.336203] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="systemd-repart output to parse:\n[\n\t{\n\t\t\"type\" : \"esp\",\n\t\t\"label\" : \"EFI\",\n\t\t\"uuid\" : \"d56397a3-2b97-4c8b-9e9d-853ae18a4493\",\n\t\t\"partno\" : 0,\n\t\t\"file\" : \"/tmp/elemental-repart.d410609416/0-efi.conf\",\n\t\t\"node\" : \"/dev/sda1\",\n\t\t\"offset\" : 1048576,\n\t\t\"old_size\" : 1073741824,\n\t\t\"raw_size\" : 1073741824,\n\t\t\"old_padding\" : 0,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"unchanged\"\n\t},\n\t{\n\t\t\"type\" : \"3265f37b-3105-4777-bd97-cfcd9cc7cf99\",\n\t\t\"label\" : \"RECOVERY\",\n\t\t\"uuid\" : \"77b0b3d5-6e55-4923-9b3d-ea402211ef4b\",\n\t\t\"partno\" : 1,\n\t\t\"file\" : \"/tmp/elemental-repart.d410609416/1-recovery.conf\",\n\t\t\"node\" : \"/dev/sda2\",\n\t\t\"offset\" : 1074790400,\n\t\t\"old_size\" : 1207959552,\n\t\t\"raw_size\" : 1207959552,\n\t\t\"old_padding\" : 0,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"unchanged\"\n\t},\n\t{\n\t\t\"type\" : \"2ecf8b13-6846-4e8a-9bc3-284ff5e2ac22\",\n\t\t\"label\" : \"ignition\",\n\t\t\"uuid\" : \"0db51bd8-73fc-451b-9fb2-f4534512d536\",\n\t\t\"partno\" : 2,\n\t\t\"file\" : \"/tmp/elemental-repart.d410609416/2-config.conf\",\n\t\t\"node\" : \"/dev/sda3\",\n\t\t\"offset\" : 2282749952,\n\t\t\"old_size\" : 268435456,\n\t\t\"raw_size\" : 268435456,\n\t\t\"old_padding\" : 0,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"unchanged\"\n\t},\n\t{\n\t\t\"type\" : \"root-x86-64\",\n\t\t\"label\" : \"SYSTEM\",\n\t\t\"uuid\" : \"8b9a00ab-2d6c-4014-8dd3-aa569e45fb4d\",\n\t\t\"partno\" : 3,\n\t\t\"file\" : \"/tmp/elemental-repart.d410609416/3-system.conf\",\n\t\t\"node\" : \"/dev/sda4\",\n\t\t\"offset\" : 2551185408,\n\t\t\"old_size\" : 670019584,\n\t\t\"raw_size\" : 16776146944,\n\t\t\"old_padding\" : 16106127360,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"resize\"\n\t}\n]\n"
+[    5.336549] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' partx -u /dev/sda'"
+[    5.343265] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' udevadm settle'"
+[    5.397172] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="creating partition volumes: []"
+[    5.397172] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="creating partition volumes: []"
+[    5.397172] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="creating partition volumes: []"
+[    5.397172] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="creating partition volumes: [{Path:/var Snapshotted:false NoCopyOnWrite:true MountOpts:[x-initrd.mount]} {Path:/root Snapshotted:false NoCopyOnWrite:false MountOpts:[x-initrd.mount]} {Path:/etc Snapshotted:true NoCopyOnWrite:false MountOpts:[x-initrd.mount]} {Path:/opt Snapshotted:false NoCopyOnWrite:false MountOpts:[]} {Path:/srv Snapshotted:false NoCopyOnWrite:false MountOpts:[]} {Path:/home Snapshotted:false NoCopyOnWrite:false MountOpts:[]} {Path:/usr/local Snapshotted:false NoCopyOnWrite:false MountOpts:[]}]"
+[    5.397327] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' udevadm settle'"
+[    5.410111] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' lsblk -p -b -n -J --output LABEL,PARTLABEL,PARTUUID,SIZE,FSTYPE,MOUNTPOINTS,PATH,PKNAME,TYPE'"
+[    5.426278] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Enabling btrfs quota"
+[    5.426321] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' btrfs quota enable /tmp/elemental_system290358471'"
+[    5.439306] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Creating subvolume: /tmp/elemental_system290358471/@"
+[    5.439427] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' btrfs subvolume create /tmp/elemental_system290358471/@'"
+[    5.440625] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Create btrfs quota group"
+[    5.440625] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' btrfs qgroup create 1/0 /tmp/elemental_system290358471'"
+[    5.441447] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Setting default subvolume"
+[    5.441447] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' btrfs subvolume set-default /tmp/elemental_system290358471/@'"
+[    5.443500] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Creating subvolume: /tmp/elemental_system290358471/@/var"
+[    5.443522] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' btrfs subvolume create /tmp/elemental_system290358471/@/var'"
+[    5.444372] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Creating subvolume: /tmp/elemental_system290358471/@/root"
+[    5.444372] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' btrfs subvolume create /tmp/elemental_system290358471/@/root'"
+[    5.445236] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Creating subvolume: /tmp/elemental_system290358471/@/opt"
+[    5.445236] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' btrfs subvolume create /tmp/elemental_system290358471/@/opt'"
+[    5.446016] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Creating subvolume: /tmp/elemental_system290358471/@/srv"
+[    5.446039] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' btrfs subvolume create /tmp/elemental_system290358471/@/srv'"
+[    5.446816] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Creating subvolume: /tmp/elemental_system290358471/@/home"
+[    5.446816] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' btrfs subvolume create /tmp/elemental_system290358471/@/home'"
+[    5.448542] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Creating subvolume: /tmp/elemental_system290358471/@/usr/local"
+[    5.448573] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' btrfs subvolume create /tmp/elemental_system290358471/@/usr/local'"
+[    5.449401] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' lsblk -p -b -n -J --output LABEL,PARTLABEL,PARTUUID,SIZE,FSTYPE,MOUNTPOINTS,PATH,PKNAME,TYPE'"
+[    5.452699] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' /usr/lib/snapper/installation-helper --root-prefix /tmp/elemental_system290358471/@ --step filesystem'"
+[    5.484435] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=info msg="Starting a btrfs snapshotter transaction"
+[    5.484435] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=info msg="Creating new snapshot"
+[    5.484435] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Creating first root filesystem as a snapshot"
+[    5.484435] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' /usr/lib/snapper/installation-helper --root-prefix /tmp/elemental_system290358471/@ --step config --description first root filesystem, snapshot 1 --userdata update-in-progress=yes'"
+[    5.498282] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=info msg="Setting RW subvolumes"
+[    5.527848] localhost.localdomain kernel: BTRFS: device label ignition devid 1 transid 9 /dev/sda3 (8:3) scanned by mount (1194)
+[    5.538917] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Creating snapshotted subvolume for '/etc'"
+[    5.538917] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Creating subvolume: /tmp/elemental_system290358471/@/.snapshots/1/snapshot/etc"
+[    5.538978] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: ' btrfs subvolume create /tmp/elemental_system290358471/@/.snapshots/1/snapshot/etc'"
+[    5.546275] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=info msg="Unpacking image source: raw:///run/initramfs/live/LiveOS/squashfs.img"
+[    5.550218] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:39Z" level=debug msg="Running cmd: 'rsync --info=progress2 --human-readable --partial --archive --checksum --xattrs --acls --filter=-x security.selinux --delete --exclude=/.snapshots --exclude=/etc/.snapshots --filter=protect /.snapshots --filter=protect /boot --filter=protect /run/elemental/firstboot --filter=protect /var --filter=protect /root --filter=protect /etc --filter=protect /opt --filter=protect /srv --filter=protect /home --filter=protect /usr/local /tmp/elemental_unpack781528442/ /tmp/elemental_system290358471/@/.snapshots/1/snapshot/'"
+[    6.239586] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 6.26M   3%  135.61MB/s    0:00:00 (xfr#128, ir-chk=1008/1271)"
+[    6.240990] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 6.58M   4%  136.31MB/s    0:00:00 (xfr#130, ir-chk=1006/1271)"
+[    6.248061] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 10.45M   6%  191.59MB/s    0:00:00 (xfr#142, ir-chk=1003/1280)"
+[    6.543035] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 10.70M   4%   29.49MB/s    0:00:00 (xfr#247, ir-chk=1642/2128)"
+[    6.544144] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 10.94M   5%   29.98MB/s    0:00:00 (xfr#252, ir-chk=1637/2128)"
+[    6.547290] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 13.17M   6%   35.68MB/s    0:00:00 (xfr#267, ir-chk=1621/2128)"
+[    6.553154] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 15.31M   7%   40.80MB/s    0:00:00 (xfr#297, ir-chk=1590/2128)"
+[    6.569584] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 17.47M   8%   44.42MB/s    0:00:00 (xfr#323, ir-chk=1560/2128)"
+[    6.589212] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 43.28M  19%  104.75MB/s    0:00:00 (xfr#328, ir-chk=1555/2128)"
+[    6.590373] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 43.86M  20%  105.89MB/s    0:00:00 (xfr#335, ir-chk=1548/2128)"
+[    6.593246] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 46.20M  21%  110.71MB/s    0:00:00 (xfr#348, ir-chk=1535/2128)"
+[    6.624088] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 48.20M  22%  107.16MB/s    0:00:00 (xfr#377, ir-chk=1506/2128)"
+[    6.626827] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 50.29M  23%  111.01MB/s    0:00:00 (xfr#396, ir-chk=1486/2128)"
+[    6.636649] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 53.90M  24%  116.56MB/s    0:00:00 (xfr#413, ir-chk=1467/2128)"
+[    6.637533] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 55.30M  25%  119.31MB/s    0:00:00 (xfr#414, ir-chk=1466/2128)"
+[    6.638613] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 57.63M  26%  123.78MB/s    0:00:00 (xfr#416, ir-chk=1464/2128)"
+[    6.640372] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 59.11M  27%  126.69MB/s    0:00:00 (xfr#423, ir-chk=1457/2128)"
+[    6.654227] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 61.58M  28%  128.22MB/s    0:00:00 (xfr#427, ir-chk=1453/2128)"
+[    6.655657] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 63.52M  29%  131.69MB/s    0:00:00 (xfr#429, ir-chk=1451/2128)"
+[    6.656754] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 65.67M  30%  135.56MB/s    0:00:00 (xfr#432, ir-chk=1448/2128)"
+[    6.661656] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 71.93M  32%  146.88MB/s    0:00:00 (xfr#446, ir-chk=1433/2128)"
+[    6.662225] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 72.21M  33%  147.46MB/s    0:00:00 (xfr#448, ir-chk=1431/2128)"
+[    6.665889] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 74.29M  34%  150.43MB/s    0:00:00 (xfr#486, ir-chk=1385/2128)"
+[    6.678808] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 76.44M  35%  150.61MB/s    0:00:00 (xfr#518, ir-chk=1320/2128)"
+[    6.691903] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 81.39M  37%  156.48MB/s    0:00:00 (xfr#528, ir-chk=1308/2128)"
+[    6.693263] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 83.13M  38%  159.19MB/s    0:00:00 (xfr#539, ir-chk=1295/2128)"
+[    6.707543] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 87.59M  40%  164.12MB/s    0:00:00 (xfr#545, ir-chk=1287/2128)"
+[    6.708669] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 91.60M  41%  170.28MB/s    0:00:00 (xfr#546, ir-chk=1286/2128)"
+[    6.708669] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 92.88M  42%  172.34MB/s    0:00:00 (xfr#547, ir-chk=1285/2128)"
+[    6.745450] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 144.43M  66%  250.44MB/s    0:00:00 (xfr#561, ir-chk=1269/2128)"
+[    6.749235] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 146.60M  67%  252.36MB/s    0:00:00 (xfr#593, ir-chk=1226/2128)"
+[    6.814312] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 148.69M  68%  229.08MB/s    0:00:00 (xfr#639, ir-chk=1177/2128)"
+[    6.820115] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 150.93M  69%  230.30MB/s    0:00:00 (xfr#649, ir-chk=1164/2128)"
+[    6.827056] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 152.83M  70%  230.61MB/s    0:00:00 (xfr#677, ir-chk=1135/2128)"
+[    6.836402] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 155.02M  71%  230.64MB/s    0:00:00 (xfr#710, ir-chk=1100/2128)"
+[    6.850726] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 158.51M  72%  230.43MB/s    0:00:00 (xfr#738, ir-chk=1065/2128)"
+[    6.852975] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 159.37M  73%  230.98MB/s    0:00:00 (xfr#764, ir-chk=1039/2128)"
+[    6.879211] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 161.54M  72%  225.22MB/s    0:00:00 (xfr#809, ir-chk=1012/2168)"
+[    6.898587] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 161.54M  70%  218.83MB/s    0:00:00 (xfr#817, ir-chk=1122/2286)"
+[    6.909657] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 162.18M  71%  216.32MB/s    0:00:00 (xfr#849, ir-chk=1080/2286)"
+[    6.919725] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 162.28M  70%  213.46MB/s    0:00:00 (xfr#882, ir-chk=1010/2317)"
+[    7.009275] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 163.00M  63%  190.96MB/s    0:00:00 (xfr#897, ir-chk=1113/2556)"
+[    7.056639] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 210.30M  81%  232.66MB/s    0:00:00 (xfr#986, ir-chk=1024/2556)"
+[    7.065722] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 210.34M  80%  230.30MB/s    0:00:00 (xfr#1017, ir-chk=1019/2582)"
+[    7.080345] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:40Z" level=debug msg="synchronizing: 210.40M  78%  226.98MB/s    0:00:00 (xfr#1038, ir-chk=1032/2616)"
+[    7.215113] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 210.57M  57%  196.88MB/s    0:00:00"
+[    7.357580] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 210.93M  47%  172.97MB/s    0:00:01 (xfr#1306, ir-chk=1160/3014)"
+[    7.379342] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 214.98M  48%  173.16MB/s    0:00:01 (xfr#1354, ir-chk=1112/3014)"
+[    7.456644] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 220.27M  49%  166.46MB/s    0:00:01 (xfr#1510, ir-chk=1014/3177)"
+[    7.482147] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 224.86M  50%  166.62MB/s    0:00:01 (xfr#1557, ir-chk=1031/3286)"
+[    7.502991] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 229.47M  51%  167.31MB/s    0:00:01 (xfr#1606, ir-chk=1018/3340)"
+[    7.537937] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 231.56M  48%  164.43MB/s    0:00:01 (xfr#1617, ir-chk=1023/3362)"
+[    7.545147] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 233.48M  49%  164.94MB/s    0:00:01 (xfr#1628, ir-chk=1012/3362)"
+[    7.553952] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 238.00M  50%  167.01MB/s    0:00:01 (xfr#1647, ir-chk=1005/3375)"
+[    7.606484] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 239.88M  49%  162.13MB/s    0:00:01 (xfr#1680, ir-chk=1186/3591)"
+[    7.643697] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 244.27M  50%  160.88MB/s    0:00:01 (xfr#1776, ir-chk=1090/3591)"
+[    7.655762] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 251.15M  51%  164.16MB/s    0:00:01 (xfr#1796, ir-chk=1070/3591)"
+[    7.657230] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 254.33M  52%  165.90MB/s    0:00:01 (xfr#1798, ir-chk=1068/3591)"
+[    7.683222] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 259.35M  53%  166.33MB/s    0:00:01 (xfr#1844, ir-chk=1010/3591)"
+[    7.703968] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 265.95M  54%  168.08MB/s    0:00:01 (xfr#1860, ir-chk=1020/3619)"
+[    7.760131] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 274.54M  55%  167.94MB/s    0:00:01 (xfr#1934, ir-chk=1081/3756)"
+[    7.764161] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 279.39M  56%  169.93MB/s    0:00:01 (xfr#1939, ir-chk=1076/3756)"
+[    7.768059] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 284.20M  57%  172.41MB/s    0:00:01 (xfr#1943, ir-chk=1072/3756)"
+[    7.771031] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 288.55M  58%  174.72MB/s    0:00:01 (xfr#1946, ir-chk=1069/3756)"
+[    7.775307] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 294.39M  59%  177.81MB/s    0:00:01 (xfr#1950, ir-chk=1065/3756)"
+[    7.778566] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 298.97M  60%  180.12MB/s    0:00:01 (xfr#1953, ir-chk=1062/3756)"
+[    7.782736] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 304.92M  61%  183.23MB/s    0:00:01 (xfr#1957, ir-chk=1058/3756)"
+[    7.786582] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 308.80M  62%  185.10MB/s    0:00:01 (xfr#1961, ir-chk=1054/3756)"
+[    7.816534] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 314.12M  63%  184.92MB/s    0:00:01 (xfr#1966, ir-chk=1049/3756)"
+[    7.820679] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 318.74M  64%  187.06MB/s    0:00:01 (xfr#1970, ir-chk=1045/3756)"
+[    7.825598] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 323.73M  65%  189.52MB/s    0:00:01 (xfr#1974, ir-chk=1041/3756)"
+[    7.829373] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 328.81M  66%  191.91MB/s    0:00:01 (xfr#1978, ir-chk=1037/3756)"
+[    7.834247] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 334.23M  67%  194.60MB/s    0:00:01 (xfr#1984, ir-chk=1031/3756)"
+[    7.837638] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 338.37M  68%  196.53MB/s    0:00:01 (xfr#1988, ir-chk=1027/3756)"
+[    7.860619] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 344.25M  69%  197.18MB/s    0:00:01 (xfr#1993, ir-chk=1022/3756)"
+[    7.875629] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 355.26M  71%  202.51MB/s    0:00:01 (xfr#1996, ir-chk=1019/3756)"
+[    7.875629] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 363.99M  73%  206.50MB/s    0:00:01 (xfr#1997, ir-chk=1018/3756)"
+[    8.062225] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 365.43M  61%  186.66MB/s    0:00:01 (xfr#2039, ir-chk=1017/3817)"
+[    8.062344] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:41Z" level=debug msg="synchronizing: 365.53M  62%  186.71MB/s    0:00:01 (xfr#2040, ir-chk=1016/3817)"
+[    8.168584] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="synchronizing: 396.19M  67%  194.66MB/s    0:00:01 (xfr#2106, ir-chk=1069/4015)"
+[    8.168691] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="synchronizing: 447.51M  75%  216.09MB/s    0:00:01 (xfr#2107, ir-chk=1068/4015)"
+[    8.297880] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="synchronizing: 449.34M  74%  203.77MB/s    0:00:02 (xfr#2273, ir-chk=1011/4302)"
+[    8.315051] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="synchronizing: 449.71M  73%  202.30MB/s    0:00:02 (xfr#2297, ir-chk=1004/4327)"
+[    8.350336] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="synchronizing: 462.47M  76%  205.62MB/s    0:00:02 (xfr#2321, ir-chk=1037/4384)"
+[    8.350336] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="synchronizing: 475.84M  78%  210.58MB/s    0:00:02 (xfr#2322, ir-chk=1036/4384)"
+[    8.417404] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="synchronizing: 482.28M  79%  206.99MB/s    0:00:02 (xfr#2409, ir-chk=1011/4504)"
+[    8.494200] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="synchronizing: 492.12M  80%  204.14MB/s    0:00:02 (xfr#2525, ir-chk=1030/4644)"
+[    8.582220] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="synchronizing: 506.07M  81%  202.19MB/s    0:00:02 (xfr#2679, ir-chk=1028/4823)"
+[    8.616724] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="synchronizing: 556.99M  90%  219.41MB/s    0:00:02 (xfr#2681, ir-chk=1026/4823)"
+[    8.709269] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="rsync stderr: rsync: [receiver] write failed on \"/tmp/elemental_system290358471/@/.snapshots/1/snapshot/usr/lib/modules/6.12.0-160000.35-default/vmlinuz\": No space left on device (28)"
+[    8.709269] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="rsync stderr: rsync error: error in file IO (code 11) at receiver.c(401) [receiver=3.4.1]"
+[    8.813038] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="rsync stderr: rsync: [sender] write error: Broken pipe (32)"
+[    8.813499] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="synchronizing: 574.20M  92%  224.98MB/s    0:00:02 (xfr#2699, ir-chk=1008/4823)"
+[    8.813572] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="'rsync' command exited with error: exit status 11"
+[    8.813598] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=error msg="rsync finished with errors: exit status 11"
+[    8.815037] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=error msg="Closing transaction due to a failure: syncing OS image content: unpacking image to '/tmp/elemental_system290358471/@/.snapshots/1/snapshot': exit status 11"
+[    8.816133] localhost.localdomain systemd[1]: tmp-elemental_unpack781528442.mount: Deactivated successfully.
+[    8.817353] localhost.localdomain systemd[1]: tmp-elemental_system290358471-\x40-.snapshots-1-snapshot-usr-local.mount: Deactivated successfully.
+[    8.818329] localhost.localdomain systemd[1]: tmp-elemental_system290358471-\x40-.snapshots-1-snapshot-home.mount: Deactivated successfully.
+[    8.819257] localhost.localdomain systemd[1]: tmp-elemental_system290358471-\x40-.snapshots-1-snapshot-srv.mount: Deactivated successfully.
+[    8.820066] localhost.localdomain systemd[1]: tmp-elemental_system290358471-\x40-.snapshots-1-snapshot-opt.mount: Deactivated successfully.
+[    8.834447] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="Setting rw property to subvolume: /tmp/elemental_system290358471/@/.snapshots/1/snapshot"
+[    8.834447] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="Running cmd: ' btrfs property set -ts /tmp/elemental_system290358471/@/.snapshots/1/snapshot ro false'"
+[    8.835423] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="Running cmd: ' btrfs subvolume delete -c -R /tmp/elemental_system290358471/@/.snapshots/1/snapshot'"
+[    8.836255] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="\"btrfs\" command reported an error: exit status 1"
+[    8.836255] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="\"btrfs\" command output: "
+[    8.836284] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=debug msg="\"btrfs\" stderr: WARNING: not deleting default subvolume id 264 '/tmp/elemental_system290358471/@/.snapshots/1/snapshot'\n"
+[    8.917757] localhost.localdomain elemental3ctl[1139]: time="2026-06-18T08:16:42Z" level=error msg="Reset failed"
+[    8.917860] localhost.localdomain elemental3ctl[1139]: 2026/06/18 08:16:42 executing transaction: syncing OS image content: unpacking image to '/tmp/elemental_system290358471/@/.snapshots/1/snapshot': exit status 11
+[    8.917860] localhost.localdomain elemental3ctl[1139]: syncing OS image content: unpacking image to '/tmp/elemental_system290358471/@/.snapshots/1/snapshot': exit status 11
+[    8.917860] localhost.localdomain elemental3ctl[1139]: deleting subvolume: exit status 1
+[    8.919353] localhost.localdomain systemd[1]: elemental-autoinstall.service: Main process exited, code=exited, status=1/FAILURE
+[    8.919456] localhost.localdomain systemd[1]: elemental-autoinstall.service: Failed with result 'exit-code'.
+[    8.919619] localhost.localdomain systemd[1]: Failed to start Elemental Autoinstall.
+[    8.923121] localhost.localdomain systemd[1]: elemental-autoinstall.service: Consumed 2.826s CPU time, 1.4G memory peak.
+[    9.815990] localhost.localdomain systemd[1]: tmp-elemental_system290358471-\x40-.snapshots-1-snapshot-root.mount: Deactivated successfully.
+[    9.816073] localhost.localdomain systemd[1]: tmp-elemental_system290358471-\x40-.snapshots-1-snapshot-var.mount: Deactivated successfully.
+[    9.816112] localhost.localdomain systemd[1]: tmp-elemental_system290358471-\x40-.snapshots-1-snapshot-run-elemental-firstboot.mount: Deactivated successfully.
+[    9.816151] localhost.localdomain systemd[1]: tmp-elemental_system290358471-\x40-.snapshots-1-snapshot-boot.mount: Deactivated successfully.
+[    9.816193] localhost.localdomain systemd[1]: tmp-elemental_system290358471.mount: Deactivated successfully.
+[   14.178982] localhost.localdomain systemd[1]: elemental-autoinstall.service: Scheduled restart job, restart counter is at 1.
+[   14.180346] localhost.localdomain systemd[1]: Starting Elemental Autoinstall...
+[   14.196345] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=info msg="Starting reset action"
+[   14.196345] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Reset action called with args: &{OperatingSystemImage: Target: Description: ConfigScript: Overlay: CreateBootEntry:true Bootloader:grub KernelCmdline: Verify:true Local:false CryptoPolicy: Snapshotter:snapper}"
+[   14.196874] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=info msg="Loaded deployment description file: /run/initramfs/live/Install/install.yaml"
+[   14.196874] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Running cmd: ' udevadm settle'"
+[   14.209218] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Running cmd: ' lsblk -p -b -n -J --output LABEL,PARTLABEL,PARTUUID,SIZE,FSTYPE,MOUNTPOINTS,PATH,PKNAME,TYPE'"
+[   14.213752] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=info msg="Running reset process"
+[   14.214155] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Running cmd: 'PATH=/sbin:/usr/sbin:/usr/bin:/bin  systemd-repart --json=pretty --definitions=/tmp/elemental-repart.d129310825 --dry-run=no --empty=allow /dev/sda'"
+[   14.220615] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="systemd-repart output to parse:\n[\n\t{\n\t\t\"type\" : \"esp\",\n\t\t\"label\" : \"EFI\",\n\t\t\"uuid\" : \"d56397a3-2b97-4c8b-9e9d-853ae18a4493\",\n\t\t\"partno\" : 0,\n\t\t\"file\" : \"/tmp/elemental-repart.d129310825/0-efi.conf\",\n\t\t\"node\" : \"/dev/sda1\",\n\t\t\"offset\" : 1048576,\n\t\t\"old_size\" : 1073741824,\n\t\t\"raw_size\" : 1073741824,\n\t\t\"old_padding\" : 0,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"unchanged\"\n\t},\n\t{\n\t\t\"type\" : \"3265f37b-3105-4777-bd97-cfcd9cc7cf99\",\n\t\t\"label\" : \"RECOVERY\",\n\t\t\"uuid\" : \"77b0b3d5-6e55-4923-9b3d-ea402211ef4b\",\n\t\t\"partno\" : 1,\n\t\t\"file\" : \"/tmp/elemental-repart.d129310825/1-recovery.conf\",\n\t\t\"node\" : \"/dev/sda2\",\n\t\t\"offset\" : 1074790400,\n\t\t\"old_size\" : 1207959552,\n\t\t\"raw_size\" : 1207959552,\n\t\t\"old_padding\" : 0,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"unchanged\"\n\t},\n\t{\n\t\t\"type\" : \"2ecf8b13-6846-4e8a-9bc3-284ff5e2ac22\",\n\t\t\"label\" : \"ignition\",\n\t\t\"uuid\" : \"0db51bd8-73fc-451b-9fb2-f4534512d536\",\n\t\t\"partno\" : 2,\n\t\t\"file\" : \"/tmp/elemental-repart.d129310825/2-config.conf\",\n\t\t\"node\" : \"/dev/sda3\",\n\t\t\"offset\" : 2282749952,\n\t\t\"old_size\" : 268435456,\n\t\t\"raw_size\" : 268435456,\n\t\t\"old_padding\" : 0,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"unchanged\"\n\t},\n\t{\n\t\t\"type\" : \"root-x86-64\",\n\t\t\"label\" : \"SYSTEM\",\n\t\t\"uuid\" : \"8b9a00ab-2d6c-4014-8dd3-aa569e45fb4d\",\n\t\t\"partno\" : 3,\n\t\t\"file\" : \"/tmp/elemental-repart.d129310825/3-system.conf\",\n\t\t\"node\" : \"/dev/sda4\",\n\t\t\"offset\" : 2551185408,\n\t\t\"old_size\" : 16776146944,\n\t\t\"raw_size\" : 16776146944,\n\t\t\"old_padding\" : 0,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"unchanged\"\n\t}\n]\n"
+[   14.221827] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Running cmd: ' partx -u /dev/sda'"
+[   14.224112] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Running cmd: ' udevadm settle'"
+[   14.292242] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="creating partition volumes: []"
+[   14.292242] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="creating partition volumes: []"
+[   14.292242] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="creating partition volumes: []"
+[   14.292310] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="creating partition volumes: [{Path:/var Snapshotted:false NoCopyOnWrite:true MountOpts:[x-initrd.mount]} {Path:/root Snapshotted:false NoCopyOnWrite:false MountOpts:[x-initrd.mount]} {Path:/etc Snapshotted:true NoCopyOnWrite:false MountOpts:[x-initrd.mount]} {Path:/opt Snapshotted:false NoCopyOnWrite:false MountOpts:[]} {Path:/srv Snapshotted:false NoCopyOnWrite:false MountOpts:[]} {Path:/home Snapshotted:false NoCopyOnWrite:false MountOpts:[]} {Path:/usr/local Snapshotted:false NoCopyOnWrite:false MountOpts:[]}]"
+[   14.292310] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Running cmd: ' udevadm settle'"
+[   14.308245] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Running cmd: ' lsblk -p -b -n -J --output LABEL,PARTLABEL,PARTUUID,SIZE,FSTYPE,MOUNTPOINTS,PATH,PKNAME,TYPE'"
+[   14.328796] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Enabling btrfs quota"
+[   14.328796] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Running cmd: ' btrfs quota enable /tmp/elemental_system497849524'"
+[   14.329909] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Creating subvolume: /tmp/elemental_system497849524/@"
+[   14.329931] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Running cmd: ' btrfs subvolume create /tmp/elemental_system497849524/@'"
+[   14.331779] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Create btrfs quota group"
+[   14.331779] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="Running cmd: ' btrfs qgroup create 1/0 /tmp/elemental_system497849524'"
+[   14.332726] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="\"btrfs\" command reported an error: exit status 1"
+[   14.332726] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="\"btrfs\" command output: "
+[   14.332726] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=debug msg="\"btrfs\" stderr: ERROR: unable to create quota group: File exists\n"
+[   14.334191] localhost.localdomain systemd[1]: tmp-elemental_system497849524.mount: Deactivated successfully.
+[   14.342458] localhost.localdomain elemental3ctl[1366]: time="2026-06-18T08:16:48Z" level=error msg="Reset failed"
+[   14.342525] localhost.localdomain elemental3ctl[1366]: 2026/06/18 08:16:48 creating partition volumes: setting btrfs partition volumes: creating quota group for /tmp/elemental_system497849524: : exit status 1
+[   14.343399] localhost.localdomain systemd[1]: elemental-autoinstall.service: Main process exited, code=exited, status=1/FAILURE
+[   14.343512] localhost.localdomain systemd[1]: elemental-autoinstall.service: Failed with result 'exit-code'.
+[   14.343961] localhost.localdomain systemd[1]: Failed to start Elemental Autoinstall.
+[   19.593723] localhost.localdomain systemd[1]: elemental-autoinstall.service: Scheduled restart job, restart counter is at 2.
+[   19.595083] localhost.localdomain systemd[1]: Starting Elemental Autoinstall...
+[   19.609137] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=info msg="Starting reset action"
+[   19.609137] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Reset action called with args: &{OperatingSystemImage: Target: Description: ConfigScript: Overlay: CreateBootEntry:true Bootloader:grub KernelCmdline: Verify:true Local:false CryptoPolicy: Snapshotter:snapper}"
+[   19.609569] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=info msg="Loaded deployment description file: /run/initramfs/live/Install/install.yaml"
+[   19.609569] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Running cmd: ' udevadm settle'"
+[   19.621121] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Running cmd: ' lsblk -p -b -n -J --output LABEL,PARTLABEL,PARTUUID,SIZE,FSTYPE,MOUNTPOINTS,PATH,PKNAME,TYPE'"
+[   19.625024] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=info msg="Running reset process"
+[   19.625314] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Running cmd: 'PATH=/sbin:/usr/sbin:/usr/bin:/bin  systemd-repart --json=pretty --definitions=/tmp/elemental-repart.d959058668 --dry-run=no --empty=allow /dev/sda'"
+[   19.630611] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="systemd-repart output to parse:\n[\n\t{\n\t\t\"type\" : \"esp\",\n\t\t\"label\" : \"EFI\",\n\t\t\"uuid\" : \"d56397a3-2b97-4c8b-9e9d-853ae18a4493\",\n\t\t\"partno\" : 0,\n\t\t\"file\" : \"/tmp/elemental-repart.d959058668/0-efi.conf\",\n\t\t\"node\" : \"/dev/sda1\",\n\t\t\"offset\" : 1048576,\n\t\t\"old_size\" : 1073741824,\n\t\t\"raw_size\" : 1073741824,\n\t\t\"old_padding\" : 0,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"unchanged\"\n\t},\n\t{\n\t\t\"type\" : \"3265f37b-3105-4777-bd97-cfcd9cc7cf99\",\n\t\t\"label\" : \"RECOVERY\",\n\t\t\"uuid\" : \"77b0b3d5-6e55-4923-9b3d-ea402211ef4b\",\n\t\t\"partno\" : 1,\n\t\t\"file\" : \"/tmp/elemental-repart.d959058668/1-recovery.conf\",\n\t\t\"node\" : \"/dev/sda2\",\n\t\t\"offset\" : 1074790400,\n\t\t\"old_size\" : 1207959552,\n\t\t\"raw_size\" : 1207959552,\n\t\t\"old_padding\" : 0,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"unchanged\"\n\t},\n\t{\n\t\t\"type\" : \"2ecf8b13-6846-4e8a-9bc3-284ff5e2ac22\",\n\t\t\"label\" : \"ignition\",\n\t\t\"uuid\" : \"0db51bd8-73fc-451b-9fb2-f4534512d536\",\n\t\t\"partno\" : 2,\n\t\t\"file\" : \"/tmp/elemental-repart.d959058668/2-config.conf\",\n\t\t\"node\" : \"/dev/sda3\",\n\t\t\"offset\" : 2282749952,\n\t\t\"old_size\" : 268435456,\n\t\t\"raw_size\" : 268435456,\n\t\t\"old_padding\" : 0,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"unchanged\"\n\t},\n\t{\n\t\t\"type\" : \"root-x86-64\",\n\t\t\"label\" : \"SYSTEM\",\n\t\t\"uuid\" : \"8b9a00ab-2d6c-4014-8dd3-aa569e45fb4d\",\n\t\t\"partno\" : 3,\n\t\t\"file\" : \"/tmp/elemental-repart.d959058668/3-system.conf\",\n\t\t\"node\" : \"/dev/sda4\",\n\t\t\"offset\" : 2551185408,\n\t\t\"old_size\" : 16776146944,\n\t\t\"raw_size\" : 16776146944,\n\t\t\"old_padding\" : 0,\n\t\t\"raw_padding\" : 0,\n\t\t\"activity\" : \"unchanged\"\n\t}\n]\n"
+[   19.630816] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Running cmd: ' partx -u /dev/sda'"
+[   19.633962] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Running cmd: ' udevadm settle'"
+[   19.693079] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="creating partition volumes: []"
+[   19.693139] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="creating partition volumes: []"
+[   19.693155] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="creating partition volumes: []"
+[   19.693180] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="creating partition volumes: [{Path:/var Snapshotted:false NoCopyOnWrite:true MountOpts:[x-initrd.mount]} {Path:/root Snapshotted:false NoCopyOnWrite:false MountOpts:[x-initrd.mount]} {Path:/etc Snapshotted:true NoCopyOnWrite:false MountOpts:[x-initrd.mount]} {Path:/opt Snapshotted:false NoCopyOnWrite:false MountOpts:[]} {Path:/srv Snapshotted:false NoCopyOnWrite:false MountOpts:[]} {Path:/home Snapshotted:false NoCopyOnWrite:false MountOpts:[]} {Path:/usr/local Snapshotted:false NoCopyOnWrite:false MountOpts:[]}]"
+[   19.693242] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Running cmd: ' udevadm settle'"
+[   19.706167] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Running cmd: ' lsblk -p -b -n -J --output LABEL,PARTLABEL,PARTUUID,SIZE,FSTYPE,MOUNTPOINTS,PATH,PKNAME,TYPE'"
+[   19.723609] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Enabling btrfs quota"
+[   19.723762] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Running cmd: ' btrfs quota enable /tmp/elemental_system137410395'"
+[   19.724767] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Creating subvolume: /tmp/elemental_system137410395/@"
+[   19.724809] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="Running cmd: ' btrfs subvolume create /tmp/elemental_system137410395/@'"
+[   19.726027] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="\"btrfs\" command reported an error: exit status 1"
+[   19.726027] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="\"btrfs\" command output: "
+[   19.726027] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=debug msg="\"btrfs\" stderr: ERROR: Could not create subvolume: File exists\n"
+[   19.727131] localhost.localdomain systemd[1]: tmp-elemental_system137410395.mount: Deactivated successfully.
+[   19.729329] localhost.localdomain elemental3ctl[1413]: time="2026-06-18T08:16:53Z" level=error msg="Reset failed"
+[   19.729416] localhost.localdomain elemental3ctl[1413]: 2026/06/18 08:16:53 creating partition volumes: setting btrfs partition volumes: creating subvolume /tmp/elemental_system137410395/@: : exit status 1
+[   19.730378] localhost.localdomain systemd[1]: elemental-autoinstall.service: Main process exited, code=exited, status=1/FAILURE
+[   19.730479] localhost.localdomain systemd[1]: elemental-autoinstall.service: Failed with result 'exit-code'.
+[   19.730644] localhost.localdomain systemd[1]: Failed to start Elemental Autoinstall.
+[   24.980630] localhost.localdomain systemd[1]: elemental-autoinstall.service: Scheduled restart job, restart counter is at 3.
+[   24.980789] localhost.localdomain systemd[1]: elemental-autoinstall.service: Start request repeated too quickly.
+[   24.980794] localhost.localdomain systemd[1]: elemental-autoinstall.service: Failed with result 'exit-code'.
+[   24.980858] localhost.localdomain systemd[1]: Failed to start Elemental Autoinstall.
