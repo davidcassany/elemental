@@ -20,7 +20,7 @@ Elemental is a tool for installing, configuring and updating operating system im
 * [Using Elemental for the first time](./docs/cookbook-first-time-use.md) - First use guide for the Elemental 3 project
 * [Image Customization](./docs/image-customization.md) - for users and/or consumers interested in customizing images that are based on a specific release.
 * [Release Manifest Guide](./docs/release-manifest.md) - for consumers interested in creating a release manifest for their solution.
-* [Elemental and Ignition Integration](./docs/ignition-integration.md) - for consumers interested in understanding the nuances and capabilities of Ignition in the scope of Elemental.
+* [Dynamic Elemental Services](./docs/dynamic-elemental-services.md) - for maintainers and integrators reviewing merge-mode runtime data delivery and dynamic Elemental services.
 * [Troubleshooting Guide](./docs/troubleshooting.md) - guide for users and consumers in troubleshooting a running system.
 
 ## Building from Source

@@ -78,7 +78,7 @@ func TestProxmoxMergeModeContract(t *testing.T) {
 
 	vmName := "elemental-merge-mode-" + env.VMID
 	remoteDir := "/var/lib/vz/template/iso/elemental-merge-mode-" + env.VMID
-	platformModuleDir := remoteDir + "/29elemental-platform-resolver"
+	platformModuleDir := remoteDir + "/31elemental-platform-resolver"
 	mergeModuleDir := remoteDir + "/30elemental-ignition-merge"
 	remoteElemental3ctl := remoteDir + "/elemental3ctl"
 	workImage := remoteDir + "/source-with-merge.qcow2"

@@ -39,7 +39,7 @@ func TestProxmoxPlatformHintSelectsProxmoxVE(t *testing.T) {
 
 	vmName := "elemental-platform-hint-" + env.VMID
 	remoteDir := "/var/lib/vz/template/iso/elemental-platform-hint-" + env.VMID
-	remoteModuleDir := remoteDir + "/29elemental-platform-resolver"
+	remoteModuleDir := remoteDir + "/31elemental-platform-resolver"
 	workImage := remoteDir + "/source-with-resolver.qcow2"
 	cidataISO := "/var/lib/vz/template/iso/vm-" + env.VMID + "-cidata.iso"
 	platformISO := "/var/lib/vz/template/iso/elemental-platform-hint-" + env.VMID + "-platform.iso"
@@ -173,7 +173,7 @@ if ! guestfish --ro -a "$disk" -m /dev/sda3:/:subvol=@/.snapshots/1/snapshot -m 
 	guestfish --ro -a "$disk" -m /dev/sda3:/:subvol=@/.snapshots/1/snapshot cat /.ignition-result.json 2>/dev/null >&2 || true
 	echo "--- ignition files ---" >&2
 	guestfish --ro -a "$disk" -m /dev/sda3:/:subvol=@/.snapshots/1/snapshot find /etc 2>/dev/null | grep -Ei 'ignition|firstboot' >&2 || true
-	guestfish --ro -a "$disk" -m /dev/sda3:/:subvol=@/.snapshots/1/snapshot find /usr/lib/dracut/modules.d/29elemental-platform-resolver >&2 || true
+	guestfish --ro -a "$disk" -m /dev/sda3:/:subvol=@/.snapshots/1/snapshot find /usr/lib/dracut/modules.d/31elemental-platform-resolver >&2 || true
 	guestfish --ro -a "$disk" -m /dev/sda3:/:subvol=@/.snapshots/1/snapshot -m /dev/sda3:/var:subvol=@/var find /var 2>/dev/null | grep -Ei 'ignition|journal|elemental-platform' >&2 || true
 	guestfish --ro -a "$disk" -m /dev/sda3:/:subvol=@/.snapshots/1/snapshot -m /dev/sda3:/var:subvol=@/var find /var/log/journal 2>/dev/null | head -20 >&2 || true
 	rm -rf /tmp/epr-journal

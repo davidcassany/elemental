@@ -117,6 +117,9 @@ tasks:
         vars:
           TARGET_IMAGE: '{{.LOCAL_TARGET_IMAGE}}'
           ELEMENTAL_IMAGE: '{{.LOCAL_HELPER_IMAGE}}'
+      - |
+        echo "[local-merge-mode] pushing base image to {{.LOCAL_TARGET_IMAGE}} for ISO build"
+        docker push "{{.LOCAL_TARGET_IMAGE}}" >/dev/null
       - task: build-iso
         vars:
           TARGET_IMAGE: '{{.LOCAL_TARGET_IMAGE}}'
@@ -217,8 +220,8 @@ tasks:
           exit 1
           fi
           echo "verified {{.TARGET_IMAGE}} contains: {{.FIX_STRING}}"
-          docker cp "$cid:/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh" "$workdir/elemental-platform-resolver.sh"
-          docker cp "$cid:/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.service" "$workdir/elemental-platform-resolver.service"
+          docker cp "$cid:/usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.sh" "$workdir/elemental-platform-resolver.sh"
+          docker cp "$cid:/usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.service" "$workdir/elemental-platform-resolver.service"
           docker cp "$cid:/usr/lib/dracut/modules.d/30elemental-ignition-merge/elemental-ignition-merge.sh" "$workdir/elemental-ignition-merge.sh"
           docker cp "$cid:/usr/lib/dracut/modules.d/30elemental-ignition-merge/elemental-ignition-merge.service" "$workdir/elemental-ignition-merge.service"
           grep -F 'PLATFORM_HINT' "$workdir/elemental-platform-resolver.sh" >/dev/null
@@ -269,18 +272,18 @@ tasks:
             usr/bin/elemental3ctl \
             usr/bin/bash \
             usr/lib/modules \
-            usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh \
-            usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.service \
-            usr/lib/dracut/modules.d/29elemental-platform-resolver/module-setup.sh \
+            usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.sh \
+            usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.service \
+            usr/lib/dracut/modules.d/31elemental-platform-resolver/module-setup.sh \
             etc/passwd \
             etc/shadow \
             etc/selinux/config \
             etc/selinux/targeted/contexts/files/file_contexts >/dev/null
             grep -aF "$2" "$root/usr/bin/elemental3ctl" >/dev/null
-          test -x "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh"
-          test -x "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/module-setup.sh"
-          grep -F 'PLATFORM_HINT' "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.sh" >/dev/null
-          grep -F 'WantedBy=initrd.target' "$root/usr/lib/dracut/modules.d/29elemental-platform-resolver/elemental-platform-resolver.service" >/dev/null
+          test -x "$root/usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.sh"
+          test -x "$root/usr/lib/dracut/modules.d/31elemental-platform-resolver/module-setup.sh"
+          grep -F 'PLATFORM_HINT' "$root/usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.sh" >/dev/null
+          grep -F 'WantedBy=initrd.target' "$root/usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.service" >/dev/null
             echo "verified {{.TARGET_ISO_IMAGE}} contains Elemental Platform Hint resolver module"
             lsinitrd "$root"/usr/lib/modules/*/initrd | grep -F elemental-platform-resolver.service >/dev/null
             lsinitrd "$root"/usr/lib/modules/*/initrd | grep -F elemental-ignition-merge.service >/dev/null

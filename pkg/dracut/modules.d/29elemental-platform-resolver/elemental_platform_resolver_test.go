@@ -355,3 +355,71 @@ func TestGenericQEMUDoesNotSelectQEMU(t *testing.T) {
 		t.Fatalf("expected generic qemu detection to no-op, got:\n%s", env)
 	}
 }
+
+func TestPatchIgnitionGeneratorPreservesResolvedPlatformOnRerun(t *testing.T) {
+	root := t.TempDir()
+	generator := filepath.Join(root, "ignition-generator")
+	original := `#!/bin/bash
+set -e
+cmdline_arg() {
+	echo ""
+}
+echo "PLATFORM_ID=$(cmdline_arg ignition.platform.id)" > /run/ignition.env
+. /run/ignition.env
+if [ -z "${PLATFORM_ID}" ]; then
+	platform="metal"
+	detectedvirt="qemu"
+	case "${detectedvirt}" in
+		*kvm*|*qemu*)
+			platform="qemu"
+			;;
+	esac
+	echo "PLATFORM_ID=${platform}" > /run/ignition.env
+fi
+`
+	if err := os.WriteFile(generator, []byte(original), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.Command("bash", "patch-ignition-generator.sh", generator)
+	cmd.Dir = "."
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("patch failed: %v\n%s", err, out)
+	}
+
+	patchedBytes, err := os.ReadFile(generator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	patched := string(patchedBytes)
+	if !strings.Contains(patched, `if [ -f /run/ignition.env ]; then`) {
+		t.Fatalf("expected patched generator to source existing env, got:\n%s", patched)
+	}
+	if !strings.Contains(patched, `if [ -z "${PLATFORM_ID:-}" ]; then`) {
+		t.Fatalf("expected patched generator to guard platform generation, got:\n%s", patched)
+	}
+	if !strings.Contains(patched, "elemental-platform-resolver preserve resolved PLATFORM_ID") {
+		t.Fatalf("expected patch marker, got:\n%s", patched)
+	}
+
+	cmd = exec.Command("bash", "-n", generator)
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("patched generator is not valid shell: %v\n%s", err, out)
+	}
+
+	cmd = exec.Command("bash", "patch-ignition-generator.sh", generator)
+	cmd.Dir = "."
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("second patch failed: %v\n%s", err, out)
+	}
+	patchedAgain, err := os.ReadFile(generator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(patchedAgain) != patched {
+		t.Fatalf("patch should be idempotent\nfirst:\n%s\nsecond:\n%s", patched, string(patchedAgain))
+	}
+}
