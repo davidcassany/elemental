@@ -88,6 +88,7 @@ disks:
         - path: /srv
         - path: /home`
 		expectedISO = "https://registry.foo.bar/base-os-kernel-default-iso:0.0.1"
+		expectedOS  = "registry.foo.bar/base-os:0.0.1"
 	)
 
 	var fs vfs.FS
@@ -126,7 +127,8 @@ disks:
 							Components: core.Components{
 								OperatingSystem: &core.OperatingSystem{
 									Image: core.Image{
-										ISO: expectedISO,
+										Base: expectedOS,
+										ISO:  expectedISO,
 									},
 								},
 							},
@@ -193,6 +195,8 @@ disks:
 		err := customizeRunner.Run(context.Background(), def, output)
 		Expect(err).ToNot(HaveOccurred())
 		defaultCustomizeDeploymentValidation(customizeDeployment, def)
+		Expect(customizeDeployment.SourceOS).NotTo(BeNil())
+		Expect(customizeDeployment.SourceOS.String()).To(Equal("oci://" + expectedOS))
 
 		Expect(customizeDeployment.Disks[0].Device).To(Equal("/dev/sda"))
 		// [{}, {}, nil, ignition, SYSTEM]
@@ -204,7 +208,7 @@ disks:
 			Label:      deployment.ConfigLabel,
 			MountPoint: deployment.ConfigMnt,
 			Role:       deployment.Config,
-			FileSystem: deployment.Ext4,
+			FileSystem: deployment.Btrfs,
 			Size:       256,
 			Hidden:     true,
 		}))
@@ -223,6 +227,48 @@ disks:
 			},
 		}))
 
+	})
+
+	It("adds embedded config partition for merge mode", func() {
+		customizeOutput := output
+		customizeOutput.Mode = config.OutputModeMerge
+		customizeRunner.FileExtractor = &fileExtractorMock{
+			extractFunc: func(uri string) (path string, err error) {
+				Expect(uri).To(Equal(expectedISO))
+				return "", nil
+			},
+		}
+		customizeDeployment := &deployment.Deployment{}
+		customizeRunner.Media = &mediaMock{
+			customizeFunc: func(d *deployment.Deployment) error {
+				customizeDeployment = d
+				return nil
+			},
+		}
+		def := &image.Definition{
+			Image: image.Image{
+				ImageType: "iso",
+			},
+			Configuration: &image.Configuration{
+				Installation: install.Installation{
+					Bootloader:    "grub",
+					KernelCmdLine: "console=ttyS0",
+					CryptoPolicy:  crypto.FIPSPolicy,
+					SerialConsole: true,
+					ISO: install.ISO{
+						Device: "/dev/sda",
+					},
+				},
+			},
+		}
+		Expect(vfs.MkdirAll(fs, customizeOutput.FirstbootConfigDir(), vfs.DirPerm)).To(Succeed())
+
+		err := customizeRunner.Run(context.Background(), def, customizeOutput)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(customizeDeployment.Disks[0].Partitions).To(ContainElement(WithTransform(func(p *deployment.Partition) bool {
+			return p != nil && p.Role == deployment.Config && p.Hidden && p.Label == deployment.ConfigLabel
+		}, BeTrue())))
 	})
 
 	It("passes deployment object for RAW media without additional partitions", func() {
@@ -267,6 +313,8 @@ disks:
 		err := customizeRunner.Run(context.Background(), def, output)
 		Expect(err).ToNot(HaveOccurred())
 		defaultCustomizeDeploymentValidation(customizeDeployment, def)
+		Expect(customizeDeployment.SourceOS).NotTo(BeNil())
+		Expect(customizeDeployment.SourceOS.String()).To(Equal("oci://" + expectedOS))
 		Expect(customizeDeployment.Disks[0].Device).To(BeEmpty())
 		Expect(len(customizeDeployment.Disks[0].Partitions)).To(Equal(0))
 	})

@@ -91,6 +91,21 @@ uri: oci://registry.org/my/image:latest
 `
 		Expect(string(data)).To(Equal(expected), "asd", string(data), expected)
 	})
+	It("serializes an image source with OCI provenance", func() {
+		imgsrc := deployment.NewRawSrc("/path/to/image/file.raw")
+		provenance := deployment.NewOCISrc("registry.org/my/image:1.2.3")
+		provenance.SetDigest("sha256:provenance")
+		imgsrc.SetProvenance(provenance)
+
+		data, err := yaml.Marshal(imgsrc)
+		Expect(err).NotTo(HaveOccurred())
+		expected := `uri: raw:///path/to/image/file.raw
+provenance:
+    digest: sha256:provenance
+    uri: oci://registry.org/my/image:1.2.3
+`
+		Expect(string(data)).To(Equal(expected))
+	})
 	It("deserializes an image source", func() {
 		imgsrc := deployment.NewEmptySrc()
 		Expect(yaml.Unmarshal([]byte(src), imgsrc)).To(Succeed())
@@ -98,6 +113,20 @@ uri: oci://registry.org/my/image:latest
 		Expect(imgsrc.IsRaw()).To(BeTrue())
 		Expect(imgsrc.String()).To(Equal("raw:///path/to/image/file.raw"))
 		Expect(imgsrc.GetDigest()).To(Equal("adfasdfadsfaf"))
+	})
+	It("deserializes an image source with OCI provenance", func() {
+		imgsrc := deployment.NewEmptySrc()
+		data := `uri: raw:///path/to/image/file.raw
+provenance:
+  digest: sha256:provenance
+  uri: oci://registry.org/my/image:1.2.3
+`
+		Expect(yaml.Unmarshal([]byte(data), imgsrc)).To(Succeed())
+		Expect(imgsrc.IsRaw()).To(BeTrue())
+		Expect(imgsrc.Provenance()).NotTo(BeNil())
+		Expect(imgsrc.Provenance().IsOCI()).To(BeTrue())
+		Expect(imgsrc.Provenance().String()).To(Equal("oci://registry.org/my/image:1.2.3"))
+		Expect(imgsrc.Provenance().GetDigest()).To(Equal("sha256:provenance"))
 	})
 	It("fails to deserialize an image without uri", func() {
 		imgsrc := deployment.NewEmptySrc()

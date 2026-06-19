@@ -98,6 +98,7 @@ func (r *Runner) Run(ctx context.Context, def *image.Definition, output config.O
 	dep, err := parseDeployment(
 		r.System.FS(),
 		mediaType,
+		rm.CorePlatform.Components.OperatingSystem.Image.Base,
 		&def.Configuration.Installation,
 		installerDeployment,
 		output,
@@ -167,6 +168,7 @@ func loadISOInstallDesc(s *sys.System, iso, outputDir string) (dep *deployment.D
 func parseDeployment(
 	fs vfs.FS,
 	mediaType installer.MediaType,
+	osImage string,
 	install *install.Installation,
 	installerDep *deployment.Deployment,
 	output config.Output,
@@ -187,7 +189,7 @@ func parseDeployment(
 			Label:      deployment.ConfigLabel,
 			MountPoint: deployment.ConfigMnt,
 			Role:       deployment.Config,
-			FileSystem: deployment.Ext4,
+			FileSystem: deployment.Btrfs,
 			Size:       deployment.MiB(configSize/128)*128 + 256,
 			Hidden:     true,
 		}
@@ -210,6 +212,7 @@ func parseDeployment(
 	d.BootConfig = &deployment.BootConfig{
 		Bootloader:    install.Bootloader,
 		KernelCmdline: install.KernelCmdLine,
+		SerialConsole: install.SerialConsole,
 	}
 
 	d.Security = &deployment.SecurityConfig{
@@ -219,6 +222,13 @@ func parseDeployment(
 	if d.IsFipsEnabled() {
 		d.BootConfig.KernelCmdline = fips.AppendCommandLine(d.BootConfig.KernelCmdline)
 	}
+
+	osURI := fmt.Sprintf("%s://%s", deployment.OCI, osImage)
+	osSource, err := deployment.NewSrcFromURI(osURI)
+	if err != nil {
+		return nil, fmt.Errorf("parsing OS source URI %q: %w", osURI, err)
+	}
+	d.SourceOS = osSource
 
 	overlaysDir := output.OverlaysDir()
 	if exists, _ := vfs.Exists(fs, overlaysDir); exists {

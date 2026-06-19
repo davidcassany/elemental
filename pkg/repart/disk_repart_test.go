@@ -19,7 +19,9 @@ package repart_test
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -38,10 +40,18 @@ func TestRepartSuite(t *testing.T) {
 	RunSpecs(t, "Repart test suite")
 }
 
-const systemdRepartJson = `[
-	{"uuid" : "c60d1845-7b04-4fc4-8639-8c49eb7277d5", "file" : "/tmp/elemental-repart.d/0-efi.conf"},
-	{"uuid" : "ddb334a8-48a2-c4de-ddb3-849eb2443e92", "file" : "/tmp/elemental-repart.d/1-system.conf"}
-]`
+func systemdRepartJson(args ...string) []byte {
+	definitions := "/tmp/elemental-repart.d"
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--definitions=") {
+			definitions = strings.TrimPrefix(arg, "--definitions=")
+		}
+	}
+	return []byte(fmt.Sprintf(`[
+	{"uuid" : "c60d1845-7b04-4fc4-8639-8c49eb7277d5", "file" : "%s/0-efi.conf"},
+	{"uuid" : "ddb334a8-48a2-c4de-ddb3-849eb2443e92", "file" : "%s/1-system.conf"}
+]`, definitions, definitions))
+}
 
 var _ = Describe("Systemd-repart tests", Label("systemd-repart"), func() {
 	var runner *sysmock.Runner
@@ -64,7 +74,7 @@ var _ = Describe("Systemd-repart tests", Label("systemd-repart"), func() {
 		Expect(vfs.MkdirAll(fs, tempDir, vfs.DirPerm)).To(Succeed())
 		runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
 			if cmd == "systemd-repart" {
-				return []byte(systemdRepartJson), runner.ReturnError
+				return systemdRepartJson(args...), runner.ReturnError
 			}
 			return []byte{}, runner.ReturnError
 		}
@@ -176,6 +186,14 @@ var _ = Describe("Systemd-repart tests", Label("systemd-repart"), func() {
 	})
 
 	It("fails if systemd-repart reports partitions not matching the deployment", func() {
+		runner.SideEffect = func(cmd string, args ...string) ([]byte, error) {
+			if cmd == "systemd-repart" {
+				return []byte(`[
+					{"uuid" : "c60d1845-7b04-4fc4-8639-8c49eb7277d5", "file" : "/tmp/elemental-repart.d/extra.conf"}
+				]`), runner.ReturnError
+			}
+			return []byte{}, runner.ReturnError
+		}
 		d := deployment.DefaultDeployment()
 		deployment.WithConfigPartition(0)(d)
 		Expect(len(d.Disks)).To(Equal(1))

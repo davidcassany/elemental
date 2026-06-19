@@ -1,0 +1,6 @@
+schema: v0
+bootloader: grub
+kernelCmdLine: "console=ttyS0 console=tty0 quiet loglevel=3"
+serialConsole: true
+raw:
+  diskSize: 8G

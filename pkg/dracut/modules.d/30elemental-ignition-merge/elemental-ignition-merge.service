@@ -1,0 +1,12 @@
+[Unit]
+Description=Stage Elemental merge-mode base Ignition
+DefaultDependencies=no
+After=systemd-udev-settle.service ignition-setup-user.service
+Before=ignition-fetch-offline.service ignition-fetch.service ignition-disks.service ignition-files.service ignition-complete.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/elemental/elemental-ignition-merge.sh
+
+[Install]
+WantedBy=initrd.target

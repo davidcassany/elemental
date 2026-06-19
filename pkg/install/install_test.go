@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,17 +40,25 @@ func TestInstallSuite(t *testing.T) {
 	RunSpecs(t, "Install test suite")
 }
 
-const systemdRepartJson = `[
-	{"uuid" : "c60d1845-7b04-4fc4-8639-8c49eb7277d5", "file" : "/tmp/elemental-repart.d/0-efi.conf"},
-	{"uuid" : "ddb334a8-48a2-c4de-ddb3-849eb2443e92", "file" : "/tmp/elemental-repart.d/1-recovery.conf"},
-	{"uuid" : "34a8abb8-ddb3-48a2-8ecc-2443e92c7510", "file" : "/tmp/elemental-repart.d/2-system.conf"}
-]`
+func systemdRepartJson(args ...string) []byte {
+	definitions := "/tmp/elemental-repart.d"
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--definitions=") {
+			definitions = strings.TrimPrefix(arg, "--definitions=")
+		}
+	}
+	return []byte(fmt.Sprintf(`[
+	{"uuid" : "c60d1845-7b04-4fc4-8639-8c49eb7277d5", "file" : "%s/0-efi.conf"},
+	{"uuid" : "ddb334a8-48a2-c4de-ddb3-849eb2443e92", "file" : "%s/1-recovery.conf"},
+	{"uuid" : "34a8abb8-ddb3-48a2-8ecc-2443e92c7510", "file" : "%s/2-system.conf"}
+]`, definitions, definitions, definitions))
+}
 
 const sectorSizeJson = `{
    "blockdevices": [
       {
          "name": "device",
-         "phy-sec": 512
+         "log-sec": 512
       }
    ]
 }`
@@ -95,10 +104,16 @@ const lsblkJson = `{
  }`
 
 type upgraderMock struct {
-	Error error
+	Error      error
+	SourceOS   *deployment.ImageSource
+	Provenance *deployment.ImageSource
 }
 
-func (u upgraderMock) Upgrade(_ *deployment.Deployment) error {
+func (u *upgraderMock) Upgrade(d *deployment.Deployment) error {
+	u.SourceOS = d.SourceOS
+	if d.SourceOS != nil {
+		u.Provenance = d.SourceOS.Provenance()
+	}
 	return u.Error
 }
 
@@ -120,9 +135,11 @@ var _ = Describe("Install", Label("install"), func() {
 		sideEffects = map[string]func(...string) ([]byte, error){}
 
 		fs, cleanup, err = sysmock.TestFS(map[string]any{
-			"/dev/device":  []byte{},
-			"/dev/device1": []byte{},
-			"/dev/device2": []byte{},
+			"/dev/device":       []byte{},
+			"/dev/device1":      []byte{},
+			"/dev/device2":      []byte{},
+			"/source/os.raw":    []byte("os"),
+			"/some/dir/content": []byte{},
 		})
 		Expect(err).ToNot(HaveOccurred())
 		s, err = sys.NewSystem(
@@ -143,10 +160,10 @@ var _ = Describe("Install", Label("install"), func() {
 			return runner.ReturnValue, runner.ReturnError
 		}
 		sideEffects["systemd-repart"] = func(args ...string) ([]byte, error) {
-			return []byte(systemdRepartJson), runner.ReturnError
+			return systemdRepartJson(args...), runner.ReturnError
 		}
 		sideEffects["lsblk"] = func(args ...string) ([]byte, error) {
-			if slices.Contains(args, "NAME,PHY-SEC") {
+			if slices.Contains(args, "NAME,LOG-SEC") {
 				return []byte(sectorSizeJson), runner.ReturnError
 			}
 			if slices.Contains(args, "/dev/device") {
@@ -166,6 +183,24 @@ var _ = Describe("Install", Label("install"), func() {
 			{"btrfs", "subvolume", "create"},
 			{"mksquashfs"},
 		}))
+	})
+	It("preserves OCI source provenance when installing from a generated raw recovery image", func() {
+		deployment.WithRecoveryPartition(0)(d)
+		d.SourceOS = deployment.NewRawSrc("/source/os.raw")
+		current := deployment.DefaultDeployment()
+		current.SourceOS = deployment.NewOCISrc("registry.example.com/elemental-os:1.2.3")
+		current.SourceOS.SetDigest("sha256:osimage")
+		Expect(current.WriteDeploymentFile(s, "/")).To(Succeed())
+
+		Expect(i.Install(d)).To(Succeed())
+
+		Expect(upgrader.SourceOS).NotTo(BeNil())
+		Expect(upgrader.SourceOS.IsRaw()).To(BeTrue())
+		Expect(upgrader.SourceOS.String()).To(HavePrefix("raw://"))
+		Expect(upgrader.Provenance).NotTo(BeNil())
+		Expect(upgrader.Provenance.IsOCI()).To(BeTrue())
+		Expect(upgrader.Provenance.String()).To(Equal("oci://registry.example.com/elemental-os:1.2.3"))
+		Expect(upgrader.Provenance.GetDigest()).To(Equal("sha256:osimage"))
 	})
 	It("fails if lsblk can't get target device data", func() {
 		sideEffects["lsblk"] = func(args ...string) ([]byte, error) {
@@ -219,5 +254,23 @@ var _ = Describe("Install", Label("install"), func() {
 			{"systemd-repart"},
 			{"btrfs", "subvolume", "create"},
 		}))
+	})
+	It("preserves live OCI source provenance when resetting from a raw source", func() {
+		deployment.WithRecoveryPartition(0)(d)
+		d.SourceOS = deployment.NewRawSrc("/source/os.raw")
+		current := deployment.DefaultDeployment()
+		current.SourceOS = deployment.NewOCISrc("registry.example.com/elemental-os:1.2.3")
+		current.SourceOS.SetDigest("sha256:osimage")
+		Expect(current.WriteDeploymentFile(s, "/")).To(Succeed())
+
+		Expect(i.Reset(d)).To(Succeed())
+
+		Expect(upgrader.SourceOS).NotTo(BeNil())
+		Expect(upgrader.SourceOS.IsRaw()).To(BeTrue())
+		Expect(upgrader.SourceOS.String()).To(Equal("raw:///source/os.raw"))
+		Expect(upgrader.Provenance).NotTo(BeNil())
+		Expect(upgrader.Provenance.IsOCI()).To(BeTrue())
+		Expect(upgrader.Provenance.String()).To(Equal("oci://registry.example.com/elemental-os:1.2.3"))
+		Expect(upgrader.Provenance.GetDigest()).To(Equal("sha256:osimage"))
 	})
 })

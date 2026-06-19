@@ -1,0 +1,403 @@
+version: '3'
+
+vars:
+  PLATFORM: '{{default "linux/amd64" .PLATFORM}}'
+  ELEMENTAL_VERSION: '{{default "3.0" .ELEMENTAL_VERSION}}'
+  BASE_OS_VERSION: '{{default "16.0" .BASE_OS_VERSION}}'
+  PATCH_VERSION: '{{default "elemental-fix" .PATCH_VERSION}}'
+  SOURCE_IMAGE: '{{default (printf "registry.suse.com/elemental/base-os-kernel-default:%s" .BASE_OS_VERSION) .SOURCE_IMAGE}}'
+  SOURCE_ISO_IMAGE: '{{default (printf "registry.suse.com/elemental/base-os-kernel-default-iso:%s" .BASE_OS_VERSION) .SOURCE_ISO_IMAGE}}'
+  ELEMENTAL_IMAGE: '{{default "elemental-image:latest" .ELEMENTAL_IMAGE}}'
+  TARGET_ELEMENTAL_IMAGE: '{{default (printf "docker.io/ravan/elemental:%s-%s" .ELEMENTAL_VERSION .PATCH_VERSION) .TARGET_ELEMENTAL_IMAGE}}'
+  TARGET_IMAGE: '{{default (printf "docker.io/ravan/base-os-kernel-default:%s-%s" .BASE_OS_VERSION .PATCH_VERSION) .TARGET_IMAGE}}'
+  TARGET_ISO_IMAGE: '{{default (printf "docker.io/ravan/base-os-kernel-default-iso:%s-%s" .BASE_OS_VERSION .PATCH_VERSION) .TARGET_ISO_IMAGE}}'
+  TARGET_IMAGE_IN_CORE_MANIFEST: '{{default (printf "index.docker.io/ravan/base-os-kernel-default:%s-%s" .BASE_OS_VERSION .PATCH_VERSION) .TARGET_IMAGE_IN_CORE_MANIFEST}}'
+  TARGET_ISO_IMAGE_IN_CORE_MANIFEST: '{{default (printf "index.docker.io/ravan/base-os-kernel-default-iso:%s-%s" .BASE_OS_VERSION .PATCH_VERSION) .TARGET_ISO_IMAGE_IN_CORE_MANIFEST}}'
+  SOURCE_CORE_MANIFEST_REPO: '{{default "elemental/rke2/rke2-manifest" .SOURCE_CORE_MANIFEST_REPO}}'
+  TARGET_CORE_MANIFEST_REPO: '{{default "docker.io/ravan/release-manifest" .TARGET_CORE_MANIFEST_REPO}}'
+  CORE_MANIFEST_TAGS: '{{default "1.35.5" .CORE_MANIFEST_TAGS}}'
+  CORE_MANIFEST_SUFFIX: '{{default .PATCH_VERSION .CORE_MANIFEST_SUFFIX}}'
+  CORE_MANIFEST_BUILD_DIR: '{{default ".build/core-release-manifests" .CORE_MANIFEST_BUILD_DIR}}'
+  FIX_STRING: '{{default "Applying SE Linux labels to snapshotted RW volumes" .FIX_STRING}}'
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --taskfile "{{.TASKFILE_DIR}}/Taskfile.yaml" --list
+
+  elemental-image:
+    desc: Build the local-only helper image that provides the patched elemental3ctl for OS/ISO patching
+    silent: true
+    cmds:
+      - |
+        docker buildx build \
+          --platform "{{.PLATFORM}}" \
+          --target runner-elemental3ctl \
+          -t "{{.ELEMENTAL_IMAGE}}" \
+          --load \
+          "{{.TASKFILE_DIR}}/.."
+
+  build-elemental:
+    desc: Build the patched Elemental CLI image for publication
+    silent: true
+    cmds:
+      - |
+        docker buildx build \
+          --platform "{{.PLATFORM}}" \
+          --target runner-elemental3 \
+          -t "{{.TARGET_ELEMENTAL_IMAGE}}" \
+          --load \
+          "{{.TASKFILE_DIR}}/.."
+
+  clean-docker-cache:
+    desc: Remove Docker buildx cache for clean rebuilds
+    silent: true
+    cmds:
+      - docker buildx prune --force
+
+  build:
+    desc: Build the patched Elemental CLI, UC base OS, and installer ISO images locally
+    silent: true
+    cmds:
+      - task: elemental-image
+      - task: build-elemental
+      - task: build-base
+      - task: build-iso
+
+  local-merge-mode:
+    desc: One-shot local dev loop — build/verify/push patched Elemental CLI + base + ISO to a local registry (default localhost:5001) under PATCH_VERSION=merge-mode, then build the merge-mode raw image
+    silent: true
+    vars:
+      LOCAL_REGISTRY: '{{default "localhost:5001/ravan" .LOCAL_REGISTRY}}'
+      LOCAL_PATCH_VERSION: '{{default "merge-mode" .LOCAL_PATCH_VERSION}}'
+      LOCAL_ELEMENTAL_IMAGE: '{{.LOCAL_REGISTRY}}/elemental:{{.ELEMENTAL_VERSION}}-{{.LOCAL_PATCH_VERSION}}'
+      LOCAL_HELPER_IMAGE: '{{.LOCAL_REGISTRY}}/elemental-image:{{.LOCAL_PATCH_VERSION}}'
+      LOCAL_TARGET_IMAGE: '{{.LOCAL_REGISTRY}}/base-os-kernel-default:{{.BASE_OS_VERSION}}-{{.LOCAL_PATCH_VERSION}}'
+      LOCAL_TARGET_ISO_IMAGE: '{{.LOCAL_REGISTRY}}/base-os-kernel-default-iso:{{.BASE_OS_VERSION}}-{{.LOCAL_PATCH_VERSION}}'
+      SKIP_VERIFY: '{{default "0" .SKIP_VERIFY}}'
+      SKIP_RAW: '{{default "0" .SKIP_RAW}}'
+    cmds:
+      - |
+        echo "[local-merge-mode] target tags:"
+        echo "  elemental: {{.LOCAL_ELEMENTAL_IMAGE}}"
+        echo "  base:      {{.LOCAL_TARGET_IMAGE}}"
+        echo "  iso:       {{.LOCAL_TARGET_ISO_IMAGE}}"
+      - |
+        echo "[local-merge-mode] clean: removing existing local images and buildx cache"
+        for img in \
+          "{{.ELEMENTAL_IMAGE}}" \
+          "{{.LOCAL_HELPER_IMAGE}}" \
+          "{{.LOCAL_ELEMENTAL_IMAGE}}" \
+          "{{.LOCAL_TARGET_IMAGE}}" \
+          "{{.LOCAL_TARGET_ISO_IMAGE}}"; do
+          if docker image inspect "$img" >/dev/null 2>&1; then
+            echo "  rmi $img"
+            docker rmi -f "$img" >/dev/null || true
+          fi
+        done
+        docker buildx prune --force >/dev/null
+        if [ -d /tmp/elemental-merge-raw/out ]; then
+          echo "  cleaning /tmp/elemental-merge-raw/out"
+          rm -rf /tmp/elemental-merge-raw/out
+        fi
+        if docker volume inspect elemental-merge-build-vol >/dev/null 2>&1; then
+          echo "  removing docker volume elemental-merge-build-vol"
+          docker volume rm -f elemental-merge-build-vol >/dev/null || true
+        fi
+      - task: elemental-image
+      - |
+        echo "[local-merge-mode] pushing helper image to {{.LOCAL_HELPER_IMAGE}}"
+        docker tag "{{.ELEMENTAL_IMAGE}}" "{{.LOCAL_HELPER_IMAGE}}"
+        docker push "{{.LOCAL_HELPER_IMAGE}}" >/dev/null
+      - task: build-elemental
+        vars:
+          TARGET_ELEMENTAL_IMAGE: '{{.LOCAL_ELEMENTAL_IMAGE}}'
+      - task: build-base
+        vars:
+          TARGET_IMAGE: '{{.LOCAL_TARGET_IMAGE}}'
+          ELEMENTAL_IMAGE: '{{.LOCAL_HELPER_IMAGE}}'
+      - |
+        echo "[local-merge-mode] pushing base image to {{.LOCAL_TARGET_IMAGE}} for ISO build"
+        docker push "{{.LOCAL_TARGET_IMAGE}}" >/dev/null
+      - task: build-iso
+        vars:
+          TARGET_IMAGE: '{{.LOCAL_TARGET_IMAGE}}'
+          TARGET_ISO_IMAGE: '{{.LOCAL_TARGET_ISO_IMAGE}}'
+          ELEMENTAL_IMAGE: '{{.LOCAL_HELPER_IMAGE}}'
+      - |
+        if [ "{{.SKIP_VERIFY}}" != "1" ]; then
+          task --taskfile "{{.TASKFILE_DIR}}/Taskfile.yaml" verify-base \
+            TARGET_IMAGE="{{.LOCAL_TARGET_IMAGE}}"
+          task --taskfile "{{.TASKFILE_DIR}}/Taskfile.yaml" verify-iso \
+            TARGET_ISO_IMAGE="{{.LOCAL_TARGET_ISO_IMAGE}}" \
+            TARGET_IMAGE="{{.LOCAL_TARGET_IMAGE}}"
+        else
+          echo "[local-merge-mode] SKIP_VERIFY=1, skipping verify-base/verify-iso"
+        fi
+      - task: publish-elemental
+        vars:
+          TARGET_ELEMENTAL_IMAGE: '{{.LOCAL_ELEMENTAL_IMAGE}}'
+      - task: publish-base
+        vars:
+          TARGET_IMAGE: '{{.LOCAL_TARGET_IMAGE}}'
+      - task: publish-iso
+        vars:
+          TARGET_ISO_IMAGE: '{{.LOCAL_TARGET_ISO_IMAGE}}'
+      - |
+        if [ "{{.SKIP_RAW}}" != "1" ]; then
+          echo "[local-merge-mode] building merge-mode raw image"
+          BUILDER_IMAGE="{{.LOCAL_ELEMENTAL_IMAGE}}" \
+            BUILD_BUILDER_IMAGE=0 \
+            CLEAN_BUILDER_IMAGE=0 \
+            "{{.TASKFILE_DIR}}/../scripts/build-merge-raw-in-docker.sh"
+        else
+          echo "[local-merge-mode] SKIP_RAW=1, skipping raw image build"
+        fi
+      - |
+        echo
+        echo "[local-merge-mode] done. Local artifacts:"
+        echo "  {{.LOCAL_ELEMENTAL_IMAGE}}"
+        echo "  {{.LOCAL_TARGET_IMAGE}}"
+        echo "  {{.LOCAL_TARGET_ISO_IMAGE}}"
+        if [ "{{.SKIP_RAW}}" != "1" ]; then
+          echo "  raw: /tmp/elemental-merge-raw/out/merge-mode.raw"
+        fi
+
+  build-base:
+    desc: Build the patched UC base OS image locally
+    silent: true
+    cmds:
+      - |
+        docker buildx build \
+          --platform "{{.PLATFORM}}" \
+          --build-arg SOURCE_IMAGE="{{.SOURCE_IMAGE}}" \
+          --build-arg ELEMENTAL_IMAGE="{{.ELEMENTAL_IMAGE}}" \
+          -f "{{.TASKFILE_DIR}}/Dockerfile" \
+          -t "{{.TARGET_IMAGE}}" \
+          --load \
+          "{{.TASKFILE_DIR}}/.."
+
+  build-iso:
+    desc: Build the patched UC installer ISO image locally
+    silent: true
+    cmds:
+      - |
+        docker buildx build \
+          --platform "{{.PLATFORM}}" \
+          --no-cache \
+          --build-arg SOURCE_IMAGE="{{.TARGET_IMAGE}}" \
+            --build-arg SOURCE_ISO_IMAGE="{{.SOURCE_ISO_IMAGE}}" \
+            --build-arg ELEMENTAL_IMAGE="{{.ELEMENTAL_IMAGE}}" \
+          -f "{{.TASKFILE_DIR}}/Dockerfile.iso" \
+          -t "{{.TARGET_ISO_IMAGE}}" \
+          --load \
+          "{{.TASKFILE_DIR}}/.."
+
+  verify:
+    desc: Verify the patched UC base OS and installer ISO images
+    silent: true
+    cmds:
+      - task: verify-base
+      - task: verify-iso
+
+  verify-base:
+    desc: Verify the patched image contains the fixed elemental3ctl relabel code path
+    silent: true
+    cmds:
+      - |
+        workdir="$(mktemp -d)"
+        tmp="$workdir/elemental3ctl"
+        cid="$(docker create --platform "{{.PLATFORM}}" "{{.TARGET_IMAGE}}")"
+        cleanup() {
+          docker rm "$cid" >/dev/null 2>&1 || true
+          rm -rf "$workdir"
+        }
+        trap cleanup EXIT
+        docker cp "$cid:/usr/bin/elemental3ctl" "$tmp"
+        if ! strings "$tmp" | grep -F "{{.FIX_STRING}}" >/dev/null; then
+          echo "missing expected fix string in {{.TARGET_IMAGE}}: {{.FIX_STRING}}" >&2
+          exit 1
+          fi
+          echo "verified {{.TARGET_IMAGE}} contains: {{.FIX_STRING}}"
+          docker cp "$cid:/usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.sh" "$workdir/elemental-platform-resolver.sh"
+          docker cp "$cid:/usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.service" "$workdir/elemental-platform-resolver.service"
+          docker cp "$cid:/usr/lib/dracut/modules.d/30elemental-ignition-merge/elemental-ignition-merge.sh" "$workdir/elemental-ignition-merge.sh"
+          docker cp "$cid:/usr/lib/dracut/modules.d/30elemental-ignition-merge/elemental-ignition-merge.service" "$workdir/elemental-ignition-merge.service"
+          grep -F 'PLATFORM_HINT' "$workdir/elemental-platform-resolver.sh" >/dev/null
+          grep -F 'Before=ignition-fetch-offline.service ignition-fetch.service ignition-disks.service ignition-files.service ignition-complete.target' "$workdir/elemental-platform-resolver.service" >/dev/null
+          grep -F 'elemental-merge' "$workdir/elemental-ignition-merge.sh" >/dev/null
+          grep -F 'Before=ignition-fetch-offline.service ignition-fetch.service ignition-disks.service ignition-files.service ignition-complete.target' "$workdir/elemental-ignition-merge.service" >/dev/null
+          echo "verified {{.TARGET_IMAGE}} contains Elemental Platform Hint resolver module"
+          echo "verified {{.TARGET_IMAGE}} contains Elemental Ignition merge module"
+          docker cp "$cid:/usr/lib/modules" "$workdir/modules"
+          initrd="$(find "$workdir/modules" -mindepth 2 -maxdepth 2 -name initrd -type f | head -n1)"
+          if [ -z "$initrd" ]; then
+            echo "missing kernel module initrd in {{.TARGET_IMAGE}}" >&2
+            exit 1
+          fi
+          docker run --rm --platform "{{.PLATFORM}}" \
+            -v "$workdir:/work" \
+            "{{.TARGET_IMAGE}}" /bin/sh -euxc '
+            lsinitrd /work/modules/*/initrd | grep -F elemental-platform-resolver.service >/dev/null
+            lsinitrd /work/modules/*/initrd | grep -F elemental-ignition-merge.service >/dev/null
+            lsinitrd -f usr/lib/elemental/elemental-ignition-merge.sh /work/modules/*/initrd | grep -F select_merge_source >/dev/null
+          '
+          echo "verified {{.TARGET_IMAGE}} kernel module initrd contains merge-mode dracut units"
+
+  verify-iso:
+    desc: Verify the patched ISO image contains the fixed elemental3ctl relabel code path and SELinux labels
+    silent: true
+    cmds:
+      - |
+        workdir="$(mktemp -d)"
+        cid="$(docker create --platform "{{.PLATFORM}}" "{{.TARGET_ISO_IMAGE}}" noop)"
+        cleanup() {
+          docker rm "$cid" >/dev/null 2>&1 || true
+          rm -rf "$workdir"
+        }
+        trap cleanup EXIT
+        docker cp "$cid:/iso" "$workdir/iso"
+        iso="$(find "$workdir/iso" -maxdepth 1 -name '*.iso' -type f | head -n1)"
+        if [ -z "$iso" ]; then
+          echo "missing ISO in {{.TARGET_ISO_IMAGE}}" >&2
+          exit 1
+        fi
+        docker run --rm --platform "{{.PLATFORM}}" \
+          -v "$workdir:/work" \
+          "{{.TARGET_IMAGE}}" /bin/sh -euxc '
+            xorriso -osirrox on -indev /work/iso/$(basename "$1") -extract /LiveOS/squashfs.img /work/squashfs.img >/dev/null 2>&1
+            root="$(mktemp -d)"
+            unsquashfs -no-xattrs -d "$root" /work/squashfs.img \
+            usr/bin/elemental3ctl \
+            usr/bin/bash \
+            usr/lib/modules \
+            usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.sh \
+            usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.service \
+            usr/lib/dracut/modules.d/31elemental-platform-resolver/module-setup.sh \
+            etc/passwd \
+            etc/shadow \
+            etc/selinux/config \
+            etc/selinux/targeted/contexts/files/file_contexts >/dev/null
+            grep -aF "$2" "$root/usr/bin/elemental3ctl" >/dev/null
+          test -x "$root/usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.sh"
+          test -x "$root/usr/lib/dracut/modules.d/31elemental-platform-resolver/module-setup.sh"
+          grep -F 'PLATFORM_HINT' "$root/usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.sh" >/dev/null
+          grep -F 'WantedBy=initrd.target' "$root/usr/lib/dracut/modules.d/31elemental-platform-resolver/elemental-platform-resolver.service" >/dev/null
+            echo "verified {{.TARGET_ISO_IMAGE}} contains Elemental Platform Hint resolver module"
+            lsinitrd "$root"/usr/lib/modules/*/initrd | grep -F elemental-platform-resolver.service >/dev/null
+            lsinitrd "$root"/usr/lib/modules/*/initrd | grep -F elemental-ignition-merge.service >/dev/null
+            lsinitrd -f usr/lib/elemental/elemental-ignition-merge.sh "$root"/usr/lib/modules/*/initrd | grep -F select_merge_source >/dev/null
+            echo "verified {{.TARGET_ISO_IMAGE}} kernel module initrd contains merge-mode dracut units"
+          file_contexts="$root/etc/selinux/targeted/contexts/files/file_contexts"
+            [ -f "$file_contexts" ] || { echo "missing SELinux file contexts in {{.TARGET_ISO_IMAGE}}" >&2; exit 1; }
+            for path in \
+              usr/bin/elemental3ctl \
+              usr/bin/bash \
+              usr/lib/modules \
+              etc/passwd \
+              etc/shadow \
+              etc/selinux/config; do
+              label="$(setfiles -n -v -r "$root" "$file_contexts" "$root/$path" 2>&1 \
+                | awk '"'"'/^Would relabel / && $NF ~ /:/ { print $NF; exit }'"'"')"
+              if [ -z "$label" ] || printf "%s" "$label" | grep -F unlabeled_t >/dev/null; then
+                echo "missing valid SELinux label on /$path in {{.TARGET_ISO_IMAGE}}: ${label:-<missing>}" >&2
+                exit 1
+              fi
+              echo "verified /$path SELinux label: $label"
+            done
+          ' verify-iso "$(basename "$iso")" "{{.FIX_STRING}}"
+        echo "verified {{.TARGET_ISO_IMAGE}} contains {{.FIX_STRING}} and SELinux labels on critical live root paths"
+
+  publish:
+    desc: Push the patched Elemental CLI, UC base OS, and installer ISO images
+    silent: true
+    cmds:
+      - task: verify
+      - task: publish-elemental
+      - task: publish-base
+      - task: publish-iso
+      - task: publish-summary
+
+  publish-elemental:
+    desc: Push the patched Elemental CLI image
+    silent: true
+    cmds:
+      - |
+        docker push "{{.TARGET_ELEMENTAL_IMAGE}}"
+        echo
+        echo "Published Elemental image: {{.TARGET_ELEMENTAL_IMAGE}}"
+
+  publish-base:
+    desc: Push the patched UC base OS image
+    silent: true
+    cmds:
+      - docker push "{{.TARGET_IMAGE}}"
+
+  publish-iso:
+    desc: Push the patched UC installer ISO image
+    silent: true
+    cmds:
+      - docker push "{{.TARGET_ISO_IMAGE}}"
+
+  build-publish:
+    desc: Build, verify, and push the patched UC base OS, installer ISO, and core release-manifest images
+    silent: true
+    cmds:
+      - task: build
+      - task: verify
+      - task: publish
+      - task: core-manifests:publish
+      - task: publish-summary
+
+  publish-summary:
+    desc: Print copy-paste artifact references for Elemental YAML files
+    silent: true
+    cmds:
+      - |
+        echo
+        echo "Published artifact references:"
+        echo
+        echo "Patched Elemental CLI image:"
+        echo "  {{.TARGET_ELEMENTAL_IMAGE}}"
+        echo
+        echo "Patched UC images:"
+        echo "  operatingSystem.image.base: {{.TARGET_IMAGE}}"
+        echo "  operatingSystem.image.iso:  {{.TARGET_ISO_IMAGE}}"
+        echo
+        echo "Core release manifest references:"
+        for tag in {{.CORE_MANIFEST_TAGS}}; do
+          ref="{{.TARGET_CORE_MANIFEST_REPO}}:${tag}-{{.CORE_MANIFEST_SUFFIX}}"
+          echo "  ${ref}"
+          echo
+          echo "  corePlatform:"
+          echo "    image: ${ref}"
+          echo
+        done
+
+  core-manifests:prepare:
+    desc: Generate patched core release-manifest build contexts
+    silent: true
+    cmds:
+      - |
+        rm -rf "{{.TASKFILE_DIR}}/{{.CORE_MANIFEST_BUILD_DIR}}"
+        python3 "{{.TASKFILE_DIR}}/patch-core-manifests.py" \
+          --source-repo "{{.SOURCE_CORE_MANIFEST_REPO}}" \
+          --target-os-image "{{.TARGET_IMAGE_IN_CORE_MANIFEST}}" \
+          --target-iso-image "{{.TARGET_ISO_IMAGE_IN_CORE_MANIFEST}}" \
+          --output-dir "{{.TASKFILE_DIR}}/{{.CORE_MANIFEST_BUILD_DIR}}" \
+          {{.CORE_MANIFEST_TAGS}}
+
+  core-manifests:publish:
+    desc: Build and push patched core release-manifest images
+    silent: true
+    cmds:
+      - task: core-manifests:prepare
+      - |
+        for tag in {{.CORE_MANIFEST_TAGS}}; do
+          docker buildx build \
+            --platform "{{.PLATFORM}}" \
+            -t "{{.TARGET_CORE_MANIFEST_REPO}}:${tag}-{{.CORE_MANIFEST_SUFFIX}}" \
+            --push \
+            "{{.TASKFILE_DIR}}/{{.CORE_MANIFEST_BUILD_DIR}}/${tag}"
+        done

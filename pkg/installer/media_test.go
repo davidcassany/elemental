@@ -20,6 +20,7 @@ package installer_test
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -27,6 +28,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/suse/elemental/v3/pkg/bootloader"
 	"github.com/suse/elemental/v3/pkg/deployment"
@@ -107,6 +109,28 @@ var _ = Describe("InstallerMedia", Label("installermedia"), func() {
 			{"mcopy", "-s", "-i", "/some/dir/build/elemental-installer/efi.img", "/some/dir/build/elemental-installer/efi/EFI", "::"},
 			{"xorriso", "-volid", "LIVE", "-padding", "0", "-outdev", "/some/dir/build/installer.iso"},
 		}))
+	})
+	It("preserves source provenance in generated install description when rewriting OS source to squashfs", func() {
+		Expect(vfs.MkdirAll(fs, "/source", vfs.DirPerm)).To(Succeed())
+		Expect(fs.WriteFile("/source/os.raw", []byte("os"), vfs.FilePerm)).To(Succeed())
+		d.SourceOS = deployment.NewRawSrc("/source/os.raw")
+		provenance := deployment.NewOCISrc("registry.example.com/elemental-os:1.2.3")
+		provenance.SetDigest("sha256:osimage")
+		d.SourceOS.SetProvenance(provenance)
+
+		media := installer.NewMedia(context.Background(), s, installer.Disk, installer.WithBootloader(bootloader.NewNone(s)))
+
+		Expect(media.PrepareInstallerFS("/some/dir/live", "/some/dir/work", d)).To(Succeed())
+
+		data, err := fs.ReadFile("/some/dir/live/Install/install.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		written := &deployment.Deployment{}
+		Expect(yaml.Unmarshal(data, written)).To(Succeed())
+		Expect(written.SourceOS).NotTo(BeNil())
+		Expect(written.SourceOS.String()).To(Equal("raw:///run/initramfs/live/LiveOS/squashfs.img"))
+		Expect(written.SourceOS.Provenance()).NotTo(BeNil())
+		Expect(written.SourceOS.Provenance().String()).To(Equal("oci://registry.example.com/elemental-os:1.2.3"))
+		Expect(written.SourceOS.Provenance().GetDigest()).To(Equal("sha256:osimage"))
 	})
 	It("fails to create an ISO without an output directory defined", func() {
 		d.SourceOS = deployment.NewDirSrc("/some/root")
@@ -203,6 +227,85 @@ var _ = Describe("InstallerMedia", Label("installermedia"), func() {
 
 		Expect(vfs.Exists(fs, "/some/dir/build/installer2.iso")).To(BeTrue())
 	})
+	It("customizes a raw disk with all merged deployment partitions", func() {
+		Expect(vfs.MkdirAll(fs, "/some/dir/build", vfs.DirPerm)).To(Succeed())
+
+		installDesc := deployment.New(deployment.WithRecoveryPartition(512))
+		installDesc.SourceOS = deployment.NewRawSrc("/run/initramfs/live/LiveOS/squashfs.img")
+		installData, err := yaml.Marshal(installDesc)
+		Expect(err).ToNot(HaveOccurred())
+
+		d = deployment.New(
+			deployment.WithRecoveryPartition(512),
+			deployment.WithConfigPartition(128),
+		)
+		d.Installer = deployment.LiveInstaller{}
+
+		seenLabels := []string{}
+		sideEffects["xorriso"] = func(args ...string) ([]byte, error) {
+			for i, arg := range args {
+				if arg != "-extract" {
+					continue
+				}
+				src := args[i+1]
+				dst := args[i+2]
+				switch src {
+				case "Install/install.yaml":
+					Expect(vfs.MkdirAll(fs, filepath.Dir(dst), vfs.DirPerm)).To(Succeed())
+					Expect(fs.WriteFile(dst, installData, vfs.FilePerm)).To(Succeed())
+				case "/":
+					Expect(vfs.MkdirAll(fs, filepath.Join(dst, "boot"), vfs.DirPerm)).To(Succeed())
+					Expect(vfs.MkdirAll(fs, filepath.Join(dst, "EFI"), vfs.DirPerm)).To(Succeed())
+				}
+				break
+			}
+			return []byte{}, nil
+		}
+		sideEffects["grub2-editenv"] = func(args ...string) ([]byte, error) {
+			Expect(fs.WriteFile(args[0], []byte(strings.Join(args[2:], "\n")), vfs.FilePerm)).To(Succeed())
+			return []byte{}, nil
+		}
+		sideEffects["rsync"] = func(args ...string) ([]byte, error) {
+			return []byte{}, nil
+		}
+		sideEffects["systemd-repart"] = func(args ...string) ([]byte, error) {
+			Expect(fs.WriteFile("/some/dir/build/installer.raw", []byte("raw"), vfs.FilePerm)).To(Succeed())
+			for _, arg := range args {
+				if !strings.HasPrefix(arg, "--definitions=") {
+					continue
+				}
+				defsDir := strings.TrimPrefix(arg, "--definitions=")
+				entries, err := fs.ReadDir(defsDir)
+				Expect(err).ToNot(HaveOccurred())
+				for _, entry := range entries {
+					data, err := fs.ReadFile(filepath.Join(defsDir, entry.Name()))
+					Expect(err).ToNot(HaveOccurred())
+					for _, label := range []string{deployment.EfiLabel, deployment.RecoveryLabel, deployment.ConfigLabel, deployment.SystemLabel} {
+						if strings.Contains(string(data), "Label="+label) {
+							seenLabels = append(seenLabels, label)
+						}
+					}
+				}
+			}
+			return []byte("[]"), nil
+		}
+
+		_, err = fs.Create("/some/dir/installer.iso")
+		Expect(err).ToNot(HaveOccurred())
+		raw := installer.NewMedia(
+			context.Background(),
+			s,
+			installer.Disk,
+			installer.WithBootloader(bootloader.NewNone(s)),
+			installer.WithOutputFile("/some/dir/build/installer.raw"),
+		)
+		raw.InputFile = "/some/dir/installer.iso"
+		raw.OutputDir = "/some/dir/build"
+
+		Expect(raw.Customize(d)).To(Succeed())
+		Expect(seenLabels).To(ConsistOf(deployment.EfiLabel, deployment.RecoveryLabel, deployment.ConfigLabel, deployment.SystemLabel))
+	})
+
 	It("fails to customize an iso that is not including an install.yaml file", func() {
 		Expect(vfs.MkdirAll(fs, "/some/dir/build", vfs.DirPerm)).To(Succeed())
 

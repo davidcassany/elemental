@@ -219,10 +219,15 @@ func (i Media) Build(d *deployment.Deployment) (err error) {
 		return fmt.Errorf("failed to populate ISO directory tree: %w", err)
 	}
 
+	serialConsole := false
+	if d.BootConfig != nil {
+		serialConsole = d.BootConfig.SerialConsole
+	}
+
 	switch i.mType {
 	case ISO:
 		cmdline := fmt.Sprintf("%s %s", deployment.LiveKernelCmdline(i.Label), d.Installer.KernelCmdline)
-		err = i.buildISO(tempDir, liveRoot, osRoot, cmdline)
+		err = i.buildISO(tempDir, liveRoot, osRoot, cmdline, serialConsole)
 	case Disk:
 		err = i.buildDisk(tempDir, liveRoot, osRoot, d)
 	default:
@@ -673,7 +678,9 @@ func (i Media) writeInstallDescription(installPath string, d *deployment.Deploym
 		d.Installer.CfgScript = filepath.Join(LiveMountPoint, liveDir, cfgScript)
 	}
 
-	d.SourceOS = deployment.NewRawSrc(SquashfsPath)
+	sourceOS := deployment.NewRawSrc(SquashfsPath)
+	sourceOS.SetProvenance(sourceOSProvenance(d.SourceOS))
+	d.SourceOS = sourceOS
 	d.Installer.OverlayTree = deployment.NewDirSrc(LiveMountPoint)
 
 	if i.mType == Disk {
@@ -694,6 +701,17 @@ func (i Media) writeInstallDescription(installPath string, d *deployment.Deploym
 	}
 
 	return nil
+}
+
+func sourceOSProvenance(sourceOS *deployment.ImageSource) *deployment.ImageSource {
+	switch {
+	case sourceOS == nil:
+		return nil
+	case sourceOS.IsOCI():
+		return sourceOS
+	default:
+		return sourceOS.Provenance()
+	}
 }
 
 // customizeDisk creates an installer disk image from the prepared root
@@ -736,17 +754,27 @@ func (i Media) customizeDisk(tempDir string, d *deployment.Deployment, mappedFil
 		}
 	}
 
-	parts := []repart.Partition{
-		{
-			Partition: esp,
-			CopyFiles: []string{
+	disk := d.GetSystemDisk()
+	if disk == nil {
+		disk = d.Disks[0]
+	}
+
+	parts := make([]repart.Partition, 0, len(disk.Partitions))
+	for _, part := range disk.Partitions {
+		if part == nil {
+			continue
+		}
+		repartPart := repart.Partition{Partition: part}
+		switch part.Role {
+		case deployment.EFI:
+			repartPart.CopyFiles = []string{
 				fmt.Sprintf("%s/boot:/boot", isoDir), fmt.Sprintf("%s/EFI:/EFI", isoDir),
-			},
-		}, {
-			Partition: recovery,
-			CopyFiles: []string{fmt.Sprintf("%s:/", isoDir)},
-			Excludes:  []string{filepath.Join(isoDir, "boot"), filepath.Join(isoDir, "EFI")},
-		},
+			}
+		case deployment.Recovery:
+			repartPart.CopyFiles = []string{fmt.Sprintf("%s:/", isoDir)}
+			repartPart.Excludes = []string{filepath.Join(isoDir, "boot"), filepath.Join(isoDir, "EFI")}
+		}
+		parts = append(parts, repartPart)
 	}
 	return repart.CreateDiskImage(i.s, i.outputFile, i.rawDiskSize, parts)
 }
@@ -765,9 +793,14 @@ func (i Media) buildDisk(tempDir, liveRoot, osRoot string, d *deployment.Deploym
 		return fmt.Errorf("undefined essential recovery or esp partitions")
 	}
 
+	serialConsole := false
+	if d.BootConfig != nil {
+		serialConsole = d.BootConfig.SerialConsole
+	}
+
 	// include the reset flag so it can be detected at boot this is an installer image
 	cmdline := fmt.Sprintf("%s %s %s", d.RecoveryKernelCmdline(), deployment.ResetMark, d.Installer.KernelCmdline)
-	err = i.bl.InstallLive(osRoot, espDir, cmdline)
+	err = i.bl.InstallLive(osRoot, espDir, cmdline, serialConsole)
 	if err != nil {
 		return fmt.Errorf("failed installing the bootloader for a installer raw image: %w", err)
 	}
@@ -789,8 +822,8 @@ func (i Media) buildDisk(tempDir, liveRoot, osRoot string, d *deployment.Deploym
 }
 
 // buildISO creates an ISO image from the prepared root
-func (i Media) buildISO(tempDir, isoDir, osRoot, kernelCmdline string) error {
-	err := i.bl.InstallLive(osRoot, isoDir, kernelCmdline)
+func (i Media) buildISO(tempDir, isoDir, osRoot, kernelCmdline string, serialConsole bool) error {
+	err := i.bl.InstallLive(osRoot, isoDir, kernelCmdline, serialConsole)
 	if err != nil {
 		return fmt.Errorf("failed installing bootloader in ISO directory tree: %w", err)
 	}

@@ -53,6 +53,10 @@ func (dir Dir) ButaneFilepath() string {
 	return filepath.Join(string(dir), "butane.yaml")
 }
 
+func (dir Dir) DynamicServiceFilepath() string {
+	return filepath.Join(string(dir), "dynamic_service.yaml")
+}
+
 func (dir Dir) kubernetesDir() string {
 	return filepath.Join(string(dir), "kubernetes")
 }
@@ -104,6 +108,13 @@ func Write(f vfs.FS, configDir Dir, conf *image.Configuration) error {
 
 	if conf.ButaneConfig != nil {
 		if err := writeYAML(f, configDir.ButaneFilepath(), conf.ButaneConfig); err != nil {
+			return err
+		}
+	}
+
+	if conf.DynamicServices.K8sDynamicEnabled() {
+		conf.DynamicServices.Default()
+		if err := writeYAML(f, configDir.DynamicServiceFilepath(), &conf.DynamicServices); err != nil {
 			return err
 		}
 	}
@@ -183,6 +194,16 @@ func Parse(f vfs.FS, configDir Dir) (conf *image.Configuration, err error) {
 		return nil, fmt.Errorf("parsing custom directory: %w", err)
 	}
 
+	data, err = f.ReadFile(configDir.DynamicServiceFilepath())
+	if err == nil {
+		if err = ParseAny(data, &conf.DynamicServices); err != nil {
+			return nil, fmt.Errorf("parsing config file %q: %w", configDir.DynamicServiceFilepath(), err)
+		}
+		conf.DynamicServices.Default()
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("reading config file: %w", err)
+	}
+
 	data, err = f.ReadFile(configDir.ButaneFilepath())
 	if err == nil {
 		if err = ParseAny(data, &conf.ButaneConfig); err != nil {
@@ -229,7 +250,7 @@ func parseKubernetes(f vfs.FS, configDir Dir, k *kubernetes.Kubernetes, r *relea
 		return fmt.Errorf("reading config file: %w", err)
 	}
 
-	if k.Network.APIVIP4 != "" || k.Network.APIVIP6 != "" {
+	if k.Network.IsHA() && k.Network.APIVIPMode != "external" {
 		containsChart := func(name string) bool {
 			return slices.ContainsFunc(r.Components.HelmCharts, func(c release.HelmChart) bool {
 				return c.Name == name

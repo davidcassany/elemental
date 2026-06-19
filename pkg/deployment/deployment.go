@@ -230,6 +230,7 @@ type Disk struct {
 type BootConfig struct {
 	Bootloader    string `yaml:"name"`
 	KernelCmdline string `yaml:"kernelCmdline"`
+	SerialConsole bool   `yaml:"serialConsole,omitempty"`
 }
 
 type FirmwareConfig struct {
@@ -1036,7 +1037,7 @@ func WithConfigPartition(size MiB) Opt {
 		Label:      ConfigLabel,
 		MountPoint: ConfigMnt,
 		Role:       Config,
-		FileSystem: Ext4,
+		FileSystem: Btrfs,
 		Size:       size,
 		Hidden:     true,
 	}

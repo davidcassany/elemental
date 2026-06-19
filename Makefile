@@ -89,6 +89,10 @@ else
 	@mv coverprofile.out.bk coverprofile.out
 endif
 
+.PHONY: integration-tests
+integration-tests:
+	go test -tags=integration $(GO_RUN_ARGS) $(INTEG_PKG)
+
 .PHONY: clean
 clean:
 	@rm -rfv $(BUILD_DIR)
