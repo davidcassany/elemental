@@ -767,7 +767,7 @@ func (i Media) buildDisk(tempDir, liveRoot, osRoot string, d *deployment.Deploym
 
 	// include the reset flag so it can be detected at boot this is an installer image
 	cmdline := fmt.Sprintf("%s %s %s", d.RecoveryKernelCmdline(), deployment.ResetMark, d.Installer.KernelCmdline)
-	err = i.bl.InstallLive(osRoot, espDir, cmdline)
+	err = i.bl.InstallLive(bootloader.InstallCtx{RootDir: osRoot, Target: espDir, KernelCmdline: cmdline})
 	if err != nil {
 		return fmt.Errorf("failed installing the bootloader for a installer raw image: %w", err)
 	}
@@ -790,7 +790,7 @@ func (i Media) buildDisk(tempDir, liveRoot, osRoot string, d *deployment.Deploym
 
 // buildISO creates an ISO image from the prepared root
 func (i Media) buildISO(tempDir, isoDir, osRoot, kernelCmdline string) error {
-	err := i.bl.InstallLive(osRoot, isoDir, kernelCmdline)
+	err := i.bl.InstallLive(bootloader.InstallCtx{RootDir: osRoot, Target: isoDir, KernelCmdline: kernelCmdline})
 	if err != nil {
 		return fmt.Errorf("failed installing bootloader in ISO directory tree: %w", err)
 	}
