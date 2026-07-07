@@ -230,6 +230,10 @@ type Disk struct {
 type BootConfig struct {
 	Bootloader    string `yaml:"name"`
 	KernelCmdline string `yaml:"kernelCmdline"`
+
+	// InitrdExtensions represents a list of CPIO files which are added in the
+	// bootloader initrd call in addition to the stock initrd included within the OS
+	InitrdExtensions []string `yaml:"initrdExtensions,omitempty"`
 }
 
 type FirmwareConfig struct {
@@ -926,6 +930,11 @@ func (d *Deployment) WriteDeploymentFile(s *sys.System, root string) error {
 	dep.OverlayTree = nil
 	dep.CfgScript = ""
 	dep.Installer = LiveInstaller{}
+
+	// omit initrd extensions as this is a runtime information which might not be consistent on reboots
+	if dep.BootConfig != nil {
+		dep.BootConfig.InitrdExtensions = nil
+	}
 
 	data, err := yaml.Marshal(dep)
 	if err != nil {
