@@ -42,6 +42,7 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 	var syscall *sysmock.Syscall
 	var mounter *sysmock.Mounter
 	var i bootloader.InstallCtx
+	var extensionBytes []byte
 	BeforeEach(func() {
 		var err error
 		tfs, cleanup, err = sysmock.TestFS(map[string]any{
@@ -49,6 +50,7 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 			"/proc/empty":    []byte{},
 			"/sys/empty":     []byte{},
 		})
+		extensionBytes = []byte("this is an extension")
 
 		Expect(err).NotTo(HaveOccurred())
 
@@ -108,14 +110,18 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		Expect(tfs.WriteFile("/target/dir/usr/lib/modules/6.14.4-1-default/vmlinuz", []byte("6.14.4-1-default vmlinux"), vfs.FilePerm)).To(Succeed())
 		Expect(tfs.WriteFile("/target/dir/usr/lib/modules/6.14.4-1-default/.vmlinuz.hmac", []byte("6.14.4-1-default .vmlinux.hmac"), vfs.FilePerm)).To(Succeed())
 		Expect(tfs.WriteFile("/target/dir/usr/lib/modules/6.14.4-1-default/initrd", []byte("6.14.4-1-default initrd"), vfs.FilePerm)).To(Succeed())
+		// Setup an initrd extension
+		Expect(vfs.MkdirAll(tfs, "/tmp/extensions", vfs.DirPerm)).To(Succeed())
+		Expect(tfs.WriteFile("/tmp/extensions/initrdExt", extensionBytes, vfs.FilePerm)).To(Succeed())
 
 		// Define the bootloader install parameters
 		i = bootloader.InstallCtx{
-			RootDir:       "/target/dir",
-			Target:        "/target/dir/boot",
-			ESPLabel:      "EFI",
-			EntryID:       "1",
-			KernelCmdline: "kernel-cmdline",
+			RootDir:          "/target/dir",
+			Target:           "/target/dir/boot",
+			ESPLabel:         "EFI",
+			EntryID:          "1",
+			KernelCmdline:    "kernel-cmdline",
+			InitrdExtensions: []string{"/tmp/extensions/initrdExt"},
 		}
 	})
 	AfterEach(func() {
@@ -136,6 +142,10 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		Expect(vfs.Exists(tfs, "/target/dir/boot/opensuse-tumbleweed/6.14.4-1-default/vmlinuz")).To(BeTrue())
 		Expect(vfs.Exists(tfs, "/target/dir/boot/opensuse-tumbleweed/6.14.4-1-default/.vmlinuz.hmac")).To(BeTrue())
 		Expect(vfs.Exists(tfs, "/target/dir/boot/opensuse-tumbleweed/6.14.4-1-default/initrd")).To(BeTrue())
+		// Initrd extension is pre-appended
+		data, err := tfs.ReadFile("/target/dir/boot/opensuse-tumbleweed/6.14.4-1-default/initrd")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(data[:len(extensionBytes)]).To(Equal(extensionBytes))
 
 		// Grub env and loader entries files exist, no recovery entry
 		Expect(vfs.Exists(tfs, "/target/dir/boot/grubenv")).To(BeTrue())

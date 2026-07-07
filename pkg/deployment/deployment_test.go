@@ -171,11 +171,18 @@ var _ = Describe("Deployment", Label("deployment"), func() {
 			d := deployment.DefaultDeployment()
 			d.Disks[0].Device = "/dev/device"
 			d.SourceOS = deployment.NewDirSrc("/some/image")
+			d.BootConfig = &deployment.BootConfig{
+				Bootloader:       "grub",
+				KernelCmdline:    "kernel parameters",
+				InitrdExtensions: []string{"/path/to/initrd/extension"},
+			}
 			Expect(d.WriteDeploymentFile(s, "/some/dir")).To(Succeed())
 			rD, err := deployment.Parse(s, "/some/dir")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(rD.Disks)).To(Equal(1))
 			Expect(rD.Disks[0].Device).To(BeEmpty())
+			Expect(rD.BootConfig).NotTo(BeNil())
+			Expect(rD.BootConfig.InitrdExtensions).To(BeEmpty())
 			Expect(len(rD.Disks[0].Partitions)).To(Equal(2))
 			Expect(rD.Sanitize(s, deployment.CheckDiskDevice)).To(Succeed())
 		})

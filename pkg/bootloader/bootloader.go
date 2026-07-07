@@ -52,6 +52,10 @@ type InstallCtx struct {
 
 	// RecKernelCmdline is the full kernel command line for the recovery entry, if any.
 	RecKernelCmdline string
+
+	// InitrdExtensions is the list of CPIO files to stack into the stock initrd. These CPIO files are mostly
+	// used to inject additional setup into the stock initrd.
+	InitrdExtensions []string
 }
 
 const (

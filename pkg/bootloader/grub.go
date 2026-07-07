@@ -137,7 +137,7 @@ func (g *Grub) Install(i InstallCtx) error {
 		return fmt.Errorf("installing grub config: %w", err)
 	}
 
-	entry, err := g.installKernelInitrd(i.RootDir, i.Target, "")
+	entry, err := g.installKernelInitrd(i.RootDir, i.Target, "", i.InitrdExtensions...)
 	if err != nil {
 		return fmt.Errorf("installing kernel+initrd: %w", err)
 	}
@@ -523,7 +523,8 @@ func (g *Grub) installKernelInitrd(rootPath, espDir, subfolder string, extension
 		return entry, fmt.Errorf("initrd not found")
 	}
 
-	err = vfs.CopyFile(g.s.FS(), initrdPath, targetDir)
+	g.s.Logger().Debug("Concatenating extensions %v and initrd %q", extensions, initrdPath)
+	err = vfs.ConcatFiles(g.s.FS(), append(extensions, initrdPath), filepath.Join(targetDir, Initrd))
 	if err != nil {
 		return entry, fmt.Errorf("copying initrd '%s': %w", initrdPath, err)
 	}
