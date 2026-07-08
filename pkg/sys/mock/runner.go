@@ -21,6 +21,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/suse/elemental/v3/pkg/log"
@@ -67,6 +68,37 @@ func (r *Runner) RunEnv(command string, envs []string, args ...string) ([]byte, 
 
 func (r *Runner) RunContext(_ context.Context, command string, args ...string) ([]byte, error) {
 	return r.Run(command, args...)
+}
+
+func (r *Runner) RunContextWithPipe(
+	_ context.Context, stdinPipeFn func(io.Writer) error, stdout, _ io.Writer,
+	_ string, envs []string, command string, args ...string,
+) error {
+	var err error
+
+	r.cmds = append(r.cmds, append([]string{command}, args...))
+	r.envs = append(r.envs, append([]string{command}, envs...))
+
+	pr, pw := io.Pipe()
+
+	callErrChan := make(chan error, 1)
+	go func() {
+		_, e := io.Copy(stdout, pr)
+		callErrChan <- e
+	}()
+
+	if err = stdinPipeFn(pw); err != nil {
+		_ = pw.Close()
+		<-callErrChan
+		return err
+	}
+
+	_ = pw.Close()
+	if err = <-callErrChan; err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Runner) RunContextParseOutput(_ context.Context, stdoutH, _ func(string), command string, args ...string) error {
