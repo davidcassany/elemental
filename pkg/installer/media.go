@@ -638,6 +638,18 @@ func (i Media) addInstallationAssets(root string, d *deployment.Deployment) erro
 		}
 	}
 
+	if d.BootConfig != nil && len(d.BootConfig.InitrdExtensions) > 0 {
+		extensions := []string{}
+		for _, extension := range d.BootConfig.InitrdExtensions {
+			err = vfs.CopyFile(i.s.FS(), extension, installPath)
+			if err != nil {
+				return fmt.Errorf("copying initrd extension %q: %w", extension, err)
+			}
+			extensions = append(extensions, filepath.Join(LiveMountPoint, installDir, filepath.Base(extension)))
+		}
+		d.BootConfig.InitrdExtensions = extensions
+	}
+
 	return nil
 }
 
