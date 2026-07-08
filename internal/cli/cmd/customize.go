@@ -34,6 +34,7 @@ type CustomizeFlags struct {
 	Platform   string
 	MediaType  string
 	Local      bool
+	BaseConfig bool
 }
 
 var CustomizeArgs CustomizeFlags
@@ -89,6 +90,11 @@ func NewCustomizeCommand(appName string, action func(context.Context, *cli.Comma
 				Name:        localFlg,
 				Usage:       localDesc,
 				Destination: &CustomizeArgs.Local,
+			},
+			&cli.BoolFlag{
+				Name:        "base-config",
+				Usage:       "Sets the Ignition configuration to be included as the base configuration",
+				Destination: &CustomizeArgs.BaseConfig,
 			},
 		},
 	}

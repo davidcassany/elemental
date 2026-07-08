@@ -123,12 +123,12 @@ func setupCustomizeRunner(
 
 	return &customize.Runner{
 		System:        s,
-		ConfigManager: setupConfigManager(s, args.ConfigDir, output, args.Local),
+		ConfigManager: setupConfigManager(s, args.ConfigDir, output, args.BaseConfig, args.Local),
 		FileExtractor: extr,
 	}, nil
 }
 
-func setupConfigManager(s *sys.System, configDir string, output config.Output, local bool) *config.Manager {
+func setupConfigManager(s *sys.System, configDir string, output config.Output, baseConfig, local bool) *config.Manager {
 	valuesResolver := &helm.ValuesResolver{
 		FS:        s.FS(),
 		ValuesDir: v0.Dir(configDir).HelmValuesDir(),
@@ -139,6 +139,7 @@ func setupConfigManager(s *sys.System, configDir string, output config.Output, l
 		config.NewHelm(s.FS(), valuesResolver, s.Logger(), output.OverlaysDir()),
 		config.WithDownloadFunc(http.DownloadFile),
 		config.WithLocal(local),
+		config.WithBaseConfig(baseConfig),
 	)
 }
 

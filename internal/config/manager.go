@@ -47,6 +47,10 @@ type Manager struct {
 	system *sys.System
 	local  bool
 
+	// baseConfig sets Ignition configuration to be included as base configuration
+	// allowing a user configuration to be merged on top
+	baseConfig bool
+
 	rmResolver   releaseManifestResolver
 	downloadFile downloadFunc
 	unpackImage  unpackFunc
@@ -76,6 +80,12 @@ func WithUnpackFunc(u unpackFunc) Opts {
 func WithLocal(local bool) Opts {
 	return func(m *Manager) {
 		m.local = local
+	}
+}
+
+func WithBaseConfig(baseConfig bool) Opts {
+	return func(m *Manager) {
+		m.baseConfig = baseConfig
 	}
 }
 
