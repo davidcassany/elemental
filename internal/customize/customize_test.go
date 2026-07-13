@@ -201,7 +201,7 @@ disks:
 		Expect(customizeDeployment.Disks[0].Partitions[1]).To(Equal(&deployment.Partition{}))
 		Expect(customizeDeployment.Disks[0].Partitions[2]).To(BeNil())
 		Expect(customizeDeployment.Disks[0].Partitions[3]).To(Equal(&deployment.Partition{
-			Label:      deployment.ConfigLabel,
+			Label:      deployment.CatalystLabel,
 			MountPoint: deployment.ConfigMnt,
 			Role:       deployment.Config,
 			FileSystem: deployment.Ext4,
