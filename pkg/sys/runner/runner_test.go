@@ -152,11 +152,11 @@ var _ = Describe("Runner", Label("runner"), func() {
 		workDir, err = tfs.RawPath(workDir)
 		Expect(err).NotTo(HaveOccurred())
 
-		// Reads first line from the standard input and the second line from a fine in the working directory
+		// Reads first line from the standard input and the second line from a file in the working directory
 		Expect(r.RunContextWithPipe(context.Background(), callback, buff, nil, workDir, nil, "cat", "-", "secondLine")).To(Succeed())
 		Expect(buff.String()).To(ContainSubstring("First line\nSecond line\n"))
 	})
-	It("runs a command getting input from a pipe in a specific working directory", func() {
+	It("runs a command getting input from a piped process and the input process fails", func() {
 		r := runner.NewRunner()
 
 		callback := func(_ io.Writer) error {
