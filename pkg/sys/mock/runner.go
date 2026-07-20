@@ -83,7 +83,13 @@ func (r *Runner) RunContextWithPipe(
 
 	callErrChan := make(chan error, 1)
 	go func() {
-		_, e := io.Copy(stdout, pr)
+		var e error
+		if stdout != nil {
+			_, e = io.Copy(stdout, pr)
+		}
+		if r.ReturnError != nil {
+			e = r.ReturnError
+		}
 		callErrChan <- e
 	}()
 

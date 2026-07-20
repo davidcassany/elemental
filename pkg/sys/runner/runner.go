@@ -180,8 +180,8 @@ func (r run) RunContextWithPipe(
 
 	if err = stdinPipeFn(stdinPipe); err != nil {
 		_ = stdinPipe.Close()
-		_ = cmd.Wait()
-		return fmt.Errorf("callback returned an error: %w", err)
+		cErr := cmd.Wait()
+		return fmt.Errorf("command returned error: %w, pipe closed with: %w", cErr, err)
 	}
 
 	if err = stdinPipe.Close(); err != nil {
