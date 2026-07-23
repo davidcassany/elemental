@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"strings"
@@ -140,6 +141,56 @@ func (r run) RunContextParseOutput(ctx context.Context, stdoutH, stderrH func(st
 	if err != nil {
 		r.debug("'%s' command exited with error: %s", command, err.Error())
 		return err
+	}
+
+	return nil
+}
+
+func (r run) RunContextWithPipe(
+	ctx context.Context, stdinPipeFn func(io.Writer) error, stdout,
+	stderr io.Writer, workDir string, env []string, command string, args ...string,
+) (err error) {
+	r.debug("Running cmd: '%s %s'", command, strings.Join(args, " "))
+
+	if stdinPipeFn == nil {
+		return fmt.Errorf("undefined stdin pipe function (stdinPipeFn)")
+	}
+
+	cmd := exec.CommandContext(ctx, command, args...)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+
+	if workDir != "" {
+		cmd.Dir = workDir
+	}
+
+	if len(env) > 0 {
+		cmd.Env = env
+	}
+
+	var stdinPipe io.WriteCloser
+	if stdinPipe, err = cmd.StdinPipe(); err != nil {
+		return fmt.Errorf("could not pipe stdin for command %q: %w", command, err)
+	}
+
+	if err = cmd.Start(); err != nil {
+		_ = stdinPipe.Close()
+		return fmt.Errorf("%q command reported an error on start: %w", command, err)
+	}
+
+	if err = stdinPipeFn(stdinPipe); err != nil {
+		_ = stdinPipe.Close()
+		cErr := cmd.Wait()
+		return fmt.Errorf("command returned error: %w, pipe closed with: %w", cErr, err)
+	}
+
+	if err = stdinPipe.Close(); err != nil {
+		_ = cmd.Wait()
+		return fmt.Errorf("closing stdin pipe: %w", err)
+	}
+
+	if err = cmd.Wait(); err != nil {
+		return fmt.Errorf("%q command returned an error: %w", command, err)
 	}
 
 	return nil

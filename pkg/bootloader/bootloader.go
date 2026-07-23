@@ -25,9 +25,37 @@ import (
 )
 
 type Bootloader interface {
-	Install(rootPath, espDir, espLabel, entryID, kernelCmdline, recKernelCmdline string) error
-	InstallLive(rootPath, espDir, kernelCmdline string) error
+	Install(i InstallCtx) error
+	InstallLive(i InstallCtx) error
 	Prune(rootPath, espDir string, keepEntryIDs []int) error
+}
+
+// InstallCtx defines the parameters requierd by the bootloader to perform an installation
+type InstallCtx struct {
+	// RootDir is the path for the root tree of the system to install the bootloader for. This path
+	// is expected to be a full OS including the kernel, initrd and bootloader binaries at default
+	// known locations.
+	RootDir string
+
+	// Target is the path where the bootloader binaries and configuration should be installed. This is
+	// typically the mountpoint of the ESP partition.
+	Target string
+
+	// ESPLabel is the filesystem label of the ESP partition.
+	ESPLabel string
+
+	// EntryID this is the ID if the current bootloader entry to be installed.
+	EntryID string
+
+	// KernelCmdline is the full kernel command line we want to set for this specific entry.
+	KernelCmdline string
+
+	// RecKernelCmdline is the full kernel command line for the recovery entry, if any.
+	RecKernelCmdline string
+
+	// InitrdExtensions is the list of CPIO files to stack into the stock initrd. These CPIO files are mostly
+	// used to inject additional setup into the stock initrd.
+	InitrdExtensions []string
 }
 
 const (
@@ -43,12 +71,12 @@ func NewNone(s *sys.System) *None {
 	return &None{s}
 }
 
-func (n *None) Install(_, _, _, _, _, _ string) error {
+func (n *None) Install(_ InstallCtx) error {
 	n.s.Logger().Info("Skipping bootloader installation")
 	return nil
 }
 
-func (n *None) InstallLive(_, _, _ string) error {
+func (n *None) InstallLive(_ InstallCtx) error {
 	n.s.Logger().Info("Skipping bootloader installation")
 	return nil
 }

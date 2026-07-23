@@ -20,6 +20,9 @@ package runner_test
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
@@ -29,7 +32,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/suse/elemental/v3/pkg/log"
+	sysmock "github.com/suse/elemental/v3/pkg/sys/mock"
 	"github.com/suse/elemental/v3/pkg/sys/runner"
+	"github.com/suse/elemental/v3/pkg/sys/vfs"
 )
 
 func TestRunnerSuite(t *testing.T) {
@@ -125,5 +130,41 @@ var _ = Describe("Runner", Label("runner"), func() {
 		Expect(slices.Contains(stdout, "stdout")).To(BeTrue())
 		Expect(len(stderr)).To(Equal(3))
 		Expect(slices.Contains(stderr, "stderr")).To(BeTrue())
+	})
+	It("runs a command getting input from a pipe in a specific working directory", func() {
+		tfs, cleanup, err := sysmock.TestFS(nil)
+		Expect(err).NotTo(HaveOccurred())
+		defer cleanup()
+
+		workDir := "/tmp/workDir"
+		Expect(vfs.MkdirAll(tfs, workDir, vfs.DirPerm)).To(Succeed())
+		Expect(tfs.WriteFile(filepath.Join(workDir, "secondLine"), []byte("Second line\n"), vfs.FilePerm)).To(Succeed())
+
+		// buffer to store the stdout of the command
+		buff := &bytes.Buffer{}
+
+		r := runner.NewRunner()
+
+		callback := func(stdin io.Writer) error {
+			_, err := io.WriteString(stdin, "First line\n")
+			return err
+		}
+		workDir, err = tfs.RawPath(workDir)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Reads first line from the standard input and the second line from a file in the working directory
+		Expect(r.RunContextWithPipe(context.Background(), callback, buff, nil, workDir, nil, "cat", "-", "secondLine")).To(Succeed())
+		Expect(buff.String()).To(ContainSubstring("First line\nSecond line\n"))
+	})
+	It("runs a command getting input from a piped process and the input process fails", func() {
+		r := runner.NewRunner()
+
+		callback := func(_ io.Writer) error {
+			return fmt.Errorf("testing error out")
+		}
+
+		Expect(r.RunContextWithPipe(context.Background(), callback, nil, nil, "", nil, "cat", "-")).To(
+			MatchError(ContainSubstring("testing error out")),
+		)
 	})
 })

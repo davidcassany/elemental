@@ -88,6 +88,10 @@ var _ = Describe("InstallerMedia", Label("installermedia"), func() {
 		d.Installer.OverlayTree = deployment.NewDirSrc("/some/dir/iso-overlay")
 		d.Installer.CfgScript = "/some/dir/config-live.sh"
 		d.Installer.KernelCmdline = "console=ttyS0"
+		d.BootConfig = &deployment.BootConfig{
+			Bootloader:       "grub",
+			InitrdExtensions: []string{"/some/dir/initrdExt"},
+		}
 
 		iso := installer.NewMedia(context.Background(), s, installer.ISO, installer.WithBootloader(bootloader.NewNone(s)))
 
@@ -99,6 +103,7 @@ var _ = Describe("InstallerMedia", Label("installermedia"), func() {
 		Expect(vfs.MkdirAll(fs, "/some/dir/install-overlay", vfs.DirPerm)).To(Succeed())
 		Expect(fs.WriteFile("/some/dir/config-live.sh", []byte("live config script"), vfs.FilePerm)).To(Succeed())
 		Expect(fs.WriteFile("/some/dir/config.sh", []byte("install config script"), vfs.FilePerm)).To(Succeed())
+		Expect(fs.WriteFile("/some/dir/initrdExt", []byte("initrd extension"), vfs.FilePerm)).To(Succeed())
 
 		Expect(iso.Build(d)).To(Succeed())
 		Expect(runner.MatchMilestones([][]string{

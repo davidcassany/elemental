@@ -638,6 +638,19 @@ func (i Media) addInstallationAssets(root string, d *deployment.Deployment) erro
 		}
 	}
 
+	if d.BootConfig != nil && len(d.BootConfig.InitrdExtensions) > 0 {
+		extensions := []string{}
+		for j, extension := range d.BootConfig.InitrdExtensions {
+			extFile := fmt.Sprintf("%d-%s", j, filepath.Base(extension))
+			err = vfs.CopyFile(i.s.FS(), extension, filepath.Join(installPath, extFile))
+			if err != nil {
+				return fmt.Errorf("copying initrd extension %q: %w", extension, err)
+			}
+			extensions = append(extensions, filepath.Join(LiveMountPoint, installDir, extFile))
+		}
+		d.BootConfig.InitrdExtensions = extensions
+	}
+
 	return nil
 }
 
@@ -767,7 +780,7 @@ func (i Media) buildDisk(tempDir, liveRoot, osRoot string, d *deployment.Deploym
 
 	// include the reset flag so it can be detected at boot this is an installer image
 	cmdline := fmt.Sprintf("%s %s %s", d.RecoveryKernelCmdline(), deployment.ResetMark, d.Installer.KernelCmdline)
-	err = i.bl.InstallLive(osRoot, espDir, cmdline)
+	err = i.bl.InstallLive(bootloader.InstallCtx{RootDir: osRoot, Target: espDir, KernelCmdline: cmdline})
 	if err != nil {
 		return fmt.Errorf("failed installing the bootloader for a installer raw image: %w", err)
 	}
@@ -790,7 +803,7 @@ func (i Media) buildDisk(tempDir, liveRoot, osRoot string, d *deployment.Deploym
 
 // buildISO creates an ISO image from the prepared root
 func (i Media) buildISO(tempDir, isoDir, osRoot, kernelCmdline string) error {
-	err := i.bl.InstallLive(osRoot, isoDir, kernelCmdline)
+	err := i.bl.InstallLive(bootloader.InstallCtx{RootDir: osRoot, Target: isoDir, KernelCmdline: kernelCmdline})
 	if err != nil {
 		return fmt.Errorf("failed installing bootloader in ISO directory tree: %w", err)
 	}

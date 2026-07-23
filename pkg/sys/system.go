@@ -19,6 +19,7 @@ package sys
 
 import (
 	"context"
+	"io"
 	"os/exec"
 	"runtime"
 
@@ -35,6 +36,10 @@ type Runner interface {
 	RunEnv(cmd string, env []string, args ...string) ([]byte, error)
 	RunContext(ctx context.Context, cmd string, args ...string) ([]byte, error)
 	RunContextParseOutput(ctx context.Context, stdoutH, stderrH func(line string), cmd string, args ...string) error
+	RunContextWithPipe(
+		ctx context.Context, stdinPipeFn func(io.Writer) error, stdout,
+		stderr io.Writer, workDir string, env []string, cmd string, args ...string,
+	) error
 }
 
 type Syscall interface {

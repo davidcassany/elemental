@@ -184,8 +184,10 @@ func (u Upgrader) Upgrade(d *deployment.Deployment) (err error) {
 	}
 
 	cmdline := ""
+	initrdExts := []string{}
 	if d.BootConfig != nil {
 		cmdline = d.BootConfig.KernelCmdline
+		initrdExts = d.BootConfig.InitrdExtensions
 	}
 
 	kernelCmdline := strings.TrimSpace(fmt.Sprintf("%s %s %s", d.BaseKernelCmdline(), uh.GenerateKernelCmdline(trans), cmdline))
@@ -195,7 +197,15 @@ func (u Upgrader) Upgrade(d *deployment.Deployment) (err error) {
 	}
 
 	espDir := filepath.Join(trans.Path, esp.MountPoint)
-	err = u.b.Install(trans.Path, espDir, esp.Label, strconv.Itoa(trans.ID), kernelCmdline, recKernelCmdline)
+	err = u.b.Install(bootloader.InstallCtx{
+		RootDir:          trans.Path,
+		Target:           espDir,
+		ESPLabel:         esp.Label,
+		EntryID:          strconv.Itoa(trans.ID),
+		KernelCmdline:    kernelCmdline,
+		RecKernelCmdline: recKernelCmdline,
+		InitrdExtensions: initrdExts,
+	})
 	if err != nil {
 		return fmt.Errorf("installing bootloader: %w", err)
 	}

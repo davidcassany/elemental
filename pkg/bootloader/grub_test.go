@@ -41,6 +41,8 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 	var runner *sysmock.Runner
 	var syscall *sysmock.Syscall
 	var mounter *sysmock.Mounter
+	var i bootloader.InstallCtx
+	var extensionBytes []byte
 	BeforeEach(func() {
 		var err error
 		tfs, cleanup, err = sysmock.TestFS(map[string]any{
@@ -48,6 +50,7 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 			"/proc/empty":    []byte{},
 			"/sys/empty":     []byte{},
 		})
+		extensionBytes = []byte("this is an extension")
 
 		Expect(err).NotTo(HaveOccurred())
 
@@ -107,6 +110,19 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		Expect(tfs.WriteFile("/target/dir/usr/lib/modules/6.14.4-1-default/vmlinuz", []byte("6.14.4-1-default vmlinux"), vfs.FilePerm)).To(Succeed())
 		Expect(tfs.WriteFile("/target/dir/usr/lib/modules/6.14.4-1-default/.vmlinuz.hmac", []byte("6.14.4-1-default .vmlinux.hmac"), vfs.FilePerm)).To(Succeed())
 		Expect(tfs.WriteFile("/target/dir/usr/lib/modules/6.14.4-1-default/initrd", []byte("6.14.4-1-default initrd"), vfs.FilePerm)).To(Succeed())
+		// Setup an initrd extension
+		Expect(vfs.MkdirAll(tfs, "/tmp/extensions", vfs.DirPerm)).To(Succeed())
+		Expect(tfs.WriteFile("/tmp/extensions/initrdExt", extensionBytes, vfs.FilePerm)).To(Succeed())
+
+		// Define the bootloader install parameters
+		i = bootloader.InstallCtx{
+			RootDir:          "/target/dir",
+			Target:           "/target/dir/boot",
+			ESPLabel:         "EFI",
+			EntryID:          "1",
+			KernelCmdline:    "kernel-cmdline",
+			InitrdExtensions: []string{"/tmp/extensions/initrdExt"},
+		}
 	})
 	AfterEach(func() {
 		cleanup()
@@ -114,7 +130,7 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 
 	It("Copies EFI applications to ESP", func() {
 		// without providing a recovery kernel cmdline the recovery entry is not created
-		err := grub.Install("/target/dir", "/target/dir/boot", "EFI", "1", "kernel cmdline", "")
+		err := grub.Install(i)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Shim, MokManager and grub.efi should exist.
@@ -126,6 +142,10 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		Expect(vfs.Exists(tfs, "/target/dir/boot/opensuse-tumbleweed/6.14.4-1-default/vmlinuz")).To(BeTrue())
 		Expect(vfs.Exists(tfs, "/target/dir/boot/opensuse-tumbleweed/6.14.4-1-default/.vmlinuz.hmac")).To(BeTrue())
 		Expect(vfs.Exists(tfs, "/target/dir/boot/opensuse-tumbleweed/6.14.4-1-default/initrd")).To(BeTrue())
+		// Initrd extension is pre-appended
+		data, err := tfs.ReadFile("/target/dir/boot/opensuse-tumbleweed/6.14.4-1-default/initrd")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(data[:len(extensionBytes)]).To(Equal(extensionBytes))
 
 		// Grub env and loader entries files exist, no recovery entry
 		Expect(vfs.Exists(tfs, "/target/dir/boot/grubenv")).To(BeTrue())
@@ -133,7 +153,8 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		Expect(vfs.Exists(tfs, "/target/dir/boot/loader/entries/recovery")).To(BeFalse())
 	})
 	It("Installs grub for LiveOS image", func() {
-		err := grub.InstallLive("/target/dir", "/iso/dir", "kernel cmdline")
+		i.Target = "/iso/dir"
+		err := grub.InstallLive(i)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Shim, MokManager and grub.efi should exist.
@@ -155,15 +176,20 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		err := tfs.Remove("/target/dir/usr/lib/modules/6.14.4-1-default/initrd")
 		Expect(err).ToNot(HaveOccurred())
 
-		err = grub.Install("/target/dir", "/target/dir/boot", "EFI", "1", "kernel cmdline", "")
+		err = grub.Install(i)
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError("installing kernel+initrd: initrd not found"))
 	})
 	It("Leaves old snapshots and overwrites 'active' entry", func() {
-		err := grub.Install("/target/dir", "/target/dir/boot", "EFI", "1", "snapshot1", "recovery cmdline")
+		i.EntryID = "1"
+		i.KernelCmdline = "snapshot1"
+		i.RecKernelCmdline = "recovery cmdline"
+		err := grub.Install(i)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = grub.Install("/target/dir", "/target/dir/boot", "EFI", "2", "snapshot2", "recovery cmdline")
+		i.EntryID = "2"
+		i.KernelCmdline = "snapshot2"
+		err = grub.Install(i)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Entries 1, 2 and 'active' should exist
@@ -198,10 +224,16 @@ var _ = Describe("Grub tests", Label("bootloader", "grub"), func() {
 		Expect(tfs.WriteFile("/target/dir/boot/opensuse-tumbleweed/6.6.99-1-default/.vmlinuz.hmac", []byte("6.6.99-1-default vmlinux"), vfs.FilePerm)).To(Succeed())
 		Expect(tfs.WriteFile("/target/dir/boot/opensuse-tumbleweed/6.6.99-1-default/initrd", []byte("6.6.99-1-default vmlinux"), vfs.FilePerm)).To(Succeed())
 
-		err := grub.Install("/target/dir", "/target/dir/boot", "EFI", "1", "snapshot1", "recoverycmd")
+		i.EntryID = "1"
+		i.KernelCmdline = "snapshot1"
+		i.RecKernelCmdline = "recoverycmd"
+		err := grub.Install(i)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = grub.Install("/target/dir", "/target/dir/boot", "EFI", "2", "snapshot2", "recoverycmd")
+		i.EntryID = "2"
+		i.KernelCmdline = "snapshot2"
+		i.RecKernelCmdline = "recoverycmd"
+		err = grub.Install(i)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Entries 1, 2, 'active' and 'recovery' should exist
