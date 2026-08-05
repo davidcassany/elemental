@@ -62,7 +62,16 @@ func AddNamespace(ctx context.Context, namespace string) context.Context {
 
 // Apply applies a tar stream to the destination folder, accepts a tar filter
 func Apply(ctx context.Context, destination string, r io.Reader, filter func(h *tar.Header) (bool, error)) (int64, error) {
-	return archive.Apply(ctx, destination, r, archive.WithFilter(filter))
+	size, err := archive.Apply(ctx, destination, r, archive.WithFilter(filter))
+	if err == nil {
+		// Drain the remaining compressed bytes so the underlying Reader
+		// reaches io.EOF. Some readers, e.g. from go-containerregistry's remote
+		// layer fetcher can verify the layer digest, but only if io.EOF is reached.
+		// archive.Apply stops at the tar end-of-archive marker, which is before the end
+		// of the compressed stream, so without this drain digests can't be verified
+		_, err = io.Copy(io.Discard, r)
+	}
+	return size, err
 }
 
 type Wrapper struct {

@@ -36,7 +36,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	containerregistry "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/daemon"
-	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
@@ -186,8 +185,10 @@ func (o OCI) unpack(ctx context.Context, destination string, excludes ...string)
 		return "", err
 	}
 
-	reader := mutate.Extract(img)
-	defer reader.Close()
+	layers, err := img.Layers()
+	if err != nil {
+		return "", fmt.Errorf("retrieving image layers: %w", err)
+	}
 
 	destination, err = o.s.FS().RawPath(destination)
 	if err != nil {
@@ -197,11 +198,25 @@ func (o OCI) unpack(ctx context.Context, destination string, excludes ...string)
 	bar := progressbar.DefaultBytes(-1, "Extracting")
 	defer bar.Close()
 
-	r := progressbar.NewReader(reader, bar)
+	// Apply layers from base to top so the containerd archive extractor
+	// handles whiteout files and root-directory (".") entries correctly,
+	// avoiding the path-safety false-positive in mutate.Extract.
+	filter := excludesFilter(destination, excludes...)
+	for _, layer := range layers {
+		rc, lerr := layer.Uncompressed()
+		if lerr != nil {
+			rc.Close()
+			return "", fmt.Errorf("reading layer: %w", lerr)
+		}
+		r := progressbar.NewReader(rc, bar)
+		_, lerr = containerd.Apply(ctx, destination, &r, filter)
+		rc.Close()
+		if lerr != nil {
+			return "", fmt.Errorf("applying layer: %w", lerr)
+		}
+	}
 
-	_, err = containerd.Apply(ctx, destination, &r, excludesFilter(destination, excludes...))
-
-	return digest.String(), err
+	return digest.String(), nil
 }
 
 func fetchImage(ctx context.Context, ref name.Reference, platform containerregistry.Platform, local bool) (containerregistry.Image, error) {
