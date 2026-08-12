@@ -34,6 +34,10 @@ if [[ -e "${REGFILE}" ]]; then
   cp "${REGFILE}" /etc/rancher/rke2/registries.yaml
 fi
 
+if [ -e "${REGFILE}" ]; then
+  cp "${REGFILE}" /etc/rancher/rke2/registries.yaml
+fi
+
 {{- if and .APIVIP4 .APIHost }}
 grep -q "{{ .APIVIP4 }} {{ .APIHost }}" /etc/hosts \
   || echo "{{ .APIVIP4 }} {{ .APIHost }}" >> /etc/hosts
