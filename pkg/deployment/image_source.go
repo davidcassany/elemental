@@ -66,9 +66,10 @@ func (i ImageSrcType) String() string {
 }
 
 type ImageSource struct {
-	uri     string
-	digest  string
-	srcType ImageSrcType
+	uri        string
+	digest     string
+	srcType    ImageSrcType
+	provenance *ImageSource
 }
 
 var (
@@ -82,6 +83,18 @@ func (i *ImageSource) SetDigest(digest string) {
 
 func (i ImageSource) GetDigest() string {
 	return i.digest
+}
+
+func (i *ImageSource) SetProvenance(provenance *ImageSource) {
+	if provenance == nil || provenance.IsEmpty() {
+		i.provenance = nil
+		return
+	}
+	i.provenance = provenance
+}
+
+func (i ImageSource) Provenance() *ImageSource {
+	return i.provenance
 }
 
 func (i ImageSource) URI() string {
@@ -149,14 +162,18 @@ func NewTarSrc(src string) *ImageSource {
 
 func (i ImageSource) MarshalYAML() (any, error) {
 	type imageSource struct {
-		Digest string `yaml:"digest,omitempty"`
-		URI    string `yaml:"uri"`
+		Digest     string       `yaml:"digest,omitempty"`
+		URI        string       `yaml:"uri"`
+		Provenance *ImageSource `yaml:"provenance,omitempty"`
 	}
 	imgSrc := imageSource{}
 	if i.digest != "" {
 		imgSrc.Digest = i.digest
 	}
 	imgSrc.URI = i.String()
+	if i.provenance != nil && !i.provenance.IsEmpty() {
+		imgSrc.Provenance = i.provenance
+	}
 
 	n := &yaml.Node{}
 	err := n.Encode(imgSrc)
@@ -165,19 +182,25 @@ func (i ImageSource) MarshalYAML() (any, error) {
 }
 
 func (i *ImageSource) UnmarshalYAML(data *yaml.Node) (err error) {
-	imgSrc := map[string]string{}
+	type imageSource struct {
+		Digest     string       `yaml:"digest,omitempty"`
+		URI        string       `yaml:"uri"`
+		Provenance *ImageSource `yaml:"provenance,omitempty"`
+	}
+	imgSrc := imageSource{}
 	if err = data.Decode(&imgSrc); err != nil {
 		return err
 	}
-	if imgSrc["uri"] == "" {
+	if imgSrc.URI == "" {
 		return fmt.Errorf("no 'uri' provided for the image source: %s", string(data.Value))
 	}
 
-	err = i.updateFromURI(imgSrc["uri"])
+	err = i.updateFromURI(imgSrc.URI)
 	if err != nil {
 		return err
 	}
-	i.digest = imgSrc["digest"]
+	i.digest = imgSrc.Digest
+	i.SetProvenance(imgSrc.Provenance)
 	return err
 }
 

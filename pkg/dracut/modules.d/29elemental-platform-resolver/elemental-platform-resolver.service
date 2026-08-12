@@ -1,0 +1,14 @@
+[Unit]
+Description=Elemental Ignition Platform Resolver
+Documentation=https://github.com/suse/elemental
+DefaultDependencies=no
+After=basic.target systemd-udev-settle.service
+Before=ignition-fetch-offline.service ignition-fetch.service ignition-disks.service ignition-files.service ignition-complete.target
+ConditionPathExists=/run/ignition.env
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/elemental-platform-resolver.sh
+
+[Install]
+WantedBy=initrd.target

@@ -59,6 +59,14 @@ func Customize(ctx context.Context, cmd *cli.Command) error {
 		logger.Error("Creating working directory failed")
 		return err
 	}
+	switch args.Mode {
+	case "split":
+		output.Mode = config.OutputModeSplit
+	case "merge":
+		output.Mode = config.OutputModeMerge
+	default:
+		output.Mode = config.OutputModeEmbedded
+	}
 
 	defer func() {
 		logger.Debug("Cleaning up working directory")
@@ -71,6 +79,9 @@ func Customize(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		logger.Error("Digesting image definition from customize flags failed")
 		return err
+	}
+	if def.Configuration.DynamicServices.K8sDynamicEnabled() && !output.MergeMode() {
+		return fmt.Errorf("dynamic Kubernetes configuration requires --mode merge")
 	}
 
 	ctxCancel, cancelFunc := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)

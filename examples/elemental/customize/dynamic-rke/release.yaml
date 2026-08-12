@@ -1,0 +1,3 @@
+manifestURI: file://./suse-product-manifest.yaml
+components:
+  kubernetes: {}

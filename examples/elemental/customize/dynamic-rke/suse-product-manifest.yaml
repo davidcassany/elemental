@@ -1,0 +1,12 @@
+metadata:
+  name: "suse-product-core"
+  version: "1.35.5-merge-mode-local"
+  creationDate: "2026-06-17"
+components:
+  operatingSystem:
+    image:
+      base: "localhost:5001/ravan/base-os-kernel-default:16.0-merge-mode"
+      iso: "localhost:5001/ravan/base-os-kernel-default-iso:16.0-merge-mode"
+  kubernetes:
+    version: "v1.35.5+rke2r1"
+    image: "registry.suse.com/elemental/rke2/rke2-tar:1.35.5_rke2r1-5.1"

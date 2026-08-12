@@ -1,7 +1,11 @@
 [Unit]
 Description=Kubernetes Resources Installer
 After=k8s-config-installer.service
+{{ if .Dynamic -}}
+ConditionPathExists=/run/elemental/k8s-dynamic-deploy-resources
+{{ else -}}
 ConditionHost={{ .InitHostname }}
+{{ end -}}
 
 [Service]
 Type=oneshot

@@ -44,6 +44,19 @@ type Output struct {
 	// ConfigPath is only populated if configuration (incl. network, catalyst and custom scripts)
 	// is requested separately. Note that extensions are *always* part of the RootPath instead.
 	ConfigPath string
+	Mode       OutputMode
+}
+
+type OutputMode string
+
+const (
+	OutputModeEmbedded OutputMode = "embedded"
+	OutputModeSplit    OutputMode = "split"
+	OutputModeMerge    OutputMode = "merge"
+)
+
+func (o Output) MergeMode() bool {
+	return o.Mode == OutputModeMerge
 }
 
 func NewOutput(fs vfs.FS, rootPath, configPath string) (Output, error) {

@@ -27,6 +27,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/suse/elemental/v3/internal/butane"
+	"github.com/suse/elemental/v3/internal/dynamicservice"
 	"github.com/suse/elemental/v3/internal/image"
 	"github.com/suse/elemental/v3/internal/image/kubernetes"
 	"github.com/suse/elemental/v3/internal/template"
@@ -41,6 +42,8 @@ const (
 	updateLinkerCacheUnitName   = "update-linker-cache.service"
 	k8sResourcesUnitName        = "k8s-resource-installer.service"
 	k8sConfigUnitName           = "k8s-config-installer.service"
+	k8sDynamicUnitName          = "elemental-k8s-dynamic.service"
+	elementalMergeMarkerPath    = "ignition/elemental-merge"
 )
 
 var (
@@ -61,6 +64,9 @@ var (
 
 	//go:embed templates/k8s-vip.yaml.tpl
 	k8sVIPManifestTpl string
+
+	//go:embed templates/elemental-k8s-dynamic.service.tpl
+	k8sDynamicUnitTpl string
 )
 
 // configureIgnition writes the Ignition configuration file including:
@@ -68,8 +74,10 @@ var (
 // * Kubernetes configuration and deployment files
 // * Systemd extensions
 // * Kubernetes distribution installation
+// * K8s dynamic service (when user data is enabled)
 func (m *Manager) configureIgnition(conf *image.Configuration, output Output, k8sScript, k8sConfScript string, ext []api.SystemdExtension) error {
 	if len(conf.ButaneConfig) == 0 &&
+		!conf.DynamicServices.K8sDynamicEnabled() &&
 		k8sScript == "" &&
 		k8sConfScript == "" &&
 		len(ext) == 0 {
@@ -85,6 +93,7 @@ func (m *Manager) configureIgnition(conf *image.Configuration, output Output, k8
 
 	config.Variant = variant
 	config.Version = version
+	var parentIgnition []byte
 
 	if len(conf.ButaneConfig) > 0 {
 		m.system.Logger().Info("Translating butane configuration to Ignition syntax")
@@ -93,9 +102,21 @@ func (m *Manager) configureIgnition(conf *image.Configuration, output Output, k8
 		if err != nil {
 			return fmt.Errorf("failed translating butane configuration: %w", err)
 		}
-		config.MergeInlineIgnition(string(ignitionBytes))
+		if output.MergeMode() {
+			parentIgnition = ignitionBytes
+		} else {
+			config.MergeInlineIgnition(string(ignitionBytes))
+		}
 	} else {
 		m.system.Logger().Info("No butane configuration to translate into Ignition syntax")
+	}
+
+	if conf.DynamicServices.K8sDynamicEnabled() {
+		m.system.Logger().Info("Dynamic service enabled: configuring k8s-dynamic file-driven boot-time K8s config rendering")
+
+		if err := m.configureK8sDynamic(conf, &config); err != nil {
+			return fmt.Errorf("configuring k8s-dynamic: %w", err)
+		}
 	}
 
 	if k8sScript != "" {
@@ -111,7 +132,7 @@ func (m *Manager) configureIgnition(conf *image.Configuration, output Output, k8
 			}
 		}
 
-		k8sResourcesUnit, err := generateK8sResourcesUnit(k8sScript, initHostname)
+		k8sResourcesUnit, err := generateK8sResourcesUnit(k8sScript, initHostname, conf.DynamicServices.K8sDynamicEnabled())
 		if err != nil {
 			return err
 		}
@@ -143,18 +164,35 @@ func (m *Manager) configureIgnition(conf *image.Configuration, output Output, k8
 	}
 
 	ignitionFile := filepath.Join(output.FirstbootConfigDir(), image.IgnitionFilePath())
-	return butane.WriteIgnitionFile(m.system, config, ignitionFile)
+	if len(parentIgnition) > 0 {
+		if err := butane.WriteMergedIgnitionFile(m.system, parentIgnition, config, ignitionFile); err != nil {
+			return err
+		}
+	} else {
+		if err := butane.WriteIgnitionFile(m.system, config, ignitionFile); err != nil {
+			return err
+		}
+	}
+	if output.MergeMode() {
+		markerPath := filepath.Join(output.FirstbootConfigDir(), elementalMergeMarkerPath)
+		if err := m.system.FS().WriteFile(markerPath, []byte("enabled\n"), 0o644); err != nil {
+			return fmt.Errorf("writing merge marker: %w", err)
+		}
+	}
+	return nil
 }
 
-func generateK8sResourcesUnit(deployScript, initHostname string) (string, error) {
+func generateK8sResourcesUnit(deployScript, initHostname string, dynamic bool) (string, error) {
 	values := struct {
 		KubernetesDir        string
 		ManifestDeployScript string
 		InitHostname         string
+		Dynamic              bool
 	}{
 		KubernetesDir:        filepath.Dir(deployScript),
 		ManifestDeployScript: deployScript,
 		InitHostname:         initHostname,
+		Dynamic:              dynamic,
 	}
 
 	data, err := template.Parse(k8sResourcesUnitName, k8sResourceUnitTpl, &values)
@@ -274,5 +312,41 @@ func marshalConfig(config map[string]any) ([]byte, error) {
 		return nil, fmt.Errorf("serializing kubernetes config: %w", err)
 	}
 
+	return data, nil
+}
+
+// configureK8sDynamic sets up the k8s-dynamic service for post-boot K8s config rendering.
+func (m *Manager) configureK8sDynamic(conf *image.Configuration, config *butane.Config) error {
+	service := conf.DynamicServices.Services.K8sDynamic
+	k8sDynamicUnit, err := generateK8sDynamicUnit(service.Config, service.Timeout)
+	if err != nil {
+		return fmt.Errorf("generating k8s-dynamic unit: %w", err)
+	}
+
+	config.AddSystemdUnit(k8sDynamicUnitName, k8sDynamicUnit, true)
+
+	return nil
+}
+
+func generateK8sDynamicUnit(configPath string, timeout int) (string, error) {
+	if configPath == "" {
+		configPath = dynamicservice.DefaultK8sDynamicConfigPath
+	}
+	if timeout <= 0 {
+		timeout = dynamicservice.DefaultK8sDynamicTimeout
+	}
+
+	values := struct {
+		ConfigPath string
+		Timeout    int
+	}{
+		ConfigPath: configPath,
+		Timeout:    timeout,
+	}
+
+	data, err := template.Parse(k8sDynamicUnitName, k8sDynamicUnitTpl, &values)
+	if err != nil {
+		return "", fmt.Errorf("parsing k8s-dynamic service template: %w", err)
+	}
 	return data, nil
 }
