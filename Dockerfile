@@ -13,6 +13,7 @@ ADD go.sum .
 RUN go mod download
 ADD cmd cmd
 ADD internal internal
+ADD version version
 ADD pkg pkg
 ADD Makefile .
 ADD .git .
