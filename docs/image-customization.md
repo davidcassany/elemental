@@ -4,7 +4,7 @@ This section provides an overview of how the `elemental3` command-line interface
 
 For general information about the customization process, refer to the [Customization Process](#customization-process) section.
 
-For information on booting images in air-gapped environments, refer to the [Air-gapped images](#air-gapped-images) section.
+For information on building images for air-gapped environments, refer to the [Air-gapped Deployments](airgapped-deployments.md) guide.
 
 For information on how to boot a customized image, refer to the [Booting a customized image](#booting-a-customized-image) section.
 
@@ -23,17 +23,15 @@ Please familiarize yourself with both points before attempting to customize your
 
 For further understanding of the customization process, you can also refer to the following sections:
 
-- [Limitations](#limitations) - for any limitations that the process might have.
+- [Supported platforms](#supported-platforms) - for the platforms that images can be customized for.
 - [Overview](#overview) - for a high-level description of the steps that the customization process goes through.
 - [Execution](#execution) - for supported methods to trigger the customization process.
 
-### Limitations
+### Supported platforms
 
-Currently, the image customization process has the following limitations:
+Images can be customized for `linux/amd64` and `linux/arm64`. The target platform is selected with the `--platform` option, which defaults to the architecture of the customization host, and does not need to match it. For example, `linux/arm64` images can be customized on an `x86_64` host.
 
-1. Supports customizing images only for `x86_64` platforms.
-
-Elemental is in active development, and these limitations **will** be addressed as part of the product roadmap.
+The release manifests must provide the operating system and Kubernetes artifacts for the selected platform.
 
 ### Overview
 
@@ -197,12 +195,12 @@ Passing the `--airgap` option to `elemental3 customize` produces an image that c
 deploys its workloads without any network access by embedding all of the necessary artifacts into the image at customization time.
 
 This includes: 
-* **Kubernetes** - the RKE2 container image archives for the core components and the CNI plugins.
+* **Kubernetes** - the RKE2 container images for the core components, the configured CNI plugins, and the configured ingress controller.
 * **Helm charts** - every configured Helm chart is pulled during customization and embedded into the built image.
 * **Container images** - all container images specified and detected during customization time from:
   * templating every Helm chart with the respective settings and values and extracting the container images from the template,
   * collecting every image from each Kubernetes manifest,
-  * images explicitly listed under `elementalEmbeddedRegistry.containerImages` in `kubernetes/cluster.yaml`.
+  * images explicitly listed under `embeddedRegistry.containerImages` in `kubernetes/cluster.yaml`.
 
 At boot time an embedded registry is started by the `elemental-registry.service` that uses Hauler to serve the container images for the Kubernetes cluster.
 
@@ -216,6 +214,8 @@ podman run -it \
   customize --type <raw/iso> \
   --airgap
 ```
+
+For requirements, configuration options, building without network access, and limitations, refer to the [Air-gapped Deployments](airgapped-deployments.md) guide.
 
 ## Booting a customized image
 
@@ -263,3 +263,5 @@ The customized image can be booted as any other regular image. Below you can fin
                 --osinfo detect=on,name=sle-unknown \
                 --virt-type kvm
     ```
+
+   The installation starts automatically once the ISO has booted. The first virtual terminal shows the system journal with the installation progress, and a root shell is available on the second virtual terminal (`Alt+F2`) and on the serial console.

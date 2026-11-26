@@ -83,10 +83,6 @@ func (m *imageStoreMock) WriteEmptyStore(dir string) error {
 	return nil
 }
 
-func (m *imageStoreMock) HaulerPath(string) (string, error) {
-	return "/usr/bin/hauler", nil
-}
-
 var _ = Describe("Registry", func() {
 	const localManifest = "/config/kubernetes/manifests/workloads.yaml"
 	const workloads = `
@@ -130,14 +126,14 @@ data:
 	BeforeEach(func() {
 		var err error
 		fs, cleanup, err = sysmock.TestFS(map[string]any{
-			localManifest:     workloads,
-			"/usr/bin/hauler": "hauler",
+			localManifest: workloads,
 		})
 		Expect(err).ToNot(HaveOccurred())
 
 		system, err = sys.NewSystem(
 			sys.WithFS(fs),
 			sys.WithLogger(log.New(log.WithDiscardAll())),
+			sys.WithPlatform("linux/arm64"),
 		)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -183,7 +179,7 @@ data:
 		conf = &image.Configuration{
 			Kubernetes: kubernetes.Kubernetes{
 				LocalManifests: []string{localManifest},
-				ElementalEmbeddedRegistry: &kubernetes.ElementalEmbeddedRegistry{
+				EmbeddedRegistry: &kubernetes.EmbeddedRegistry{
 					ContainerImages: []kubernetes.ContainerImage{{Name: "quay.io/app/web:2.0"}, {Name: "quay.io/app/extra:1.0"}},
 					Registries: []kubernetes.Registry{
 						{URI: "quay.io", Credentials: &auth.Credentials{Username: "user", Password: "secret"}},
@@ -205,9 +201,9 @@ data:
 
 	It("Embeds every collected image and configures the registry", func() {
 		helm := &helmConfiguratorMock{containerImages: []string{"ghcr.io/helm/rendered:3.0", "quay.io/app/web:2.0"}}
-		m := NewManager(system, helm, WithImageStore(store), WithPlatform("linux/arm64"))
+		m := NewManager(system, helm, WithImageStore(store))
 
-		hosts, err := m.configureElementalRegistry(context.Background(), conf, rm, output, butaneCfg)
+		hosts, err := m.configureEmbeddedRegistry(context.Background(), conf, rm, output, butaneCfg)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(hosts).To(Equal([]string{"docker.io", "ghcr.io", "quay.io", "registry.example.com"}))
 
@@ -234,13 +230,11 @@ data:
 		Expect(store.exported).To(Equal([]string{storeDir, filepath.Join(registryDir, "registry")}))
 		Expect(store.stores).To(Equal([]string{filepath.Join(registryDir, "store")}))
 
-		info, err := fs.Stat(filepath.Join(output.OverlaysDir(), "usr", "local", "libexec", "elemental", "hauler"))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(info.Mode().Perm()).To(BeEquivalentTo(0o755))
+		Expect(vfs.Exists(fs, filepath.Join(output.OverlaysDir(), "usr"))).To(BeFalse())
 
 		unit := findUnit("elemental-registry.service")
 		Expect(unit).NotTo(BeNil())
-		Expect(*unit).To(ContainSubstring("ExecStart=/usr/local/libexec/elemental/hauler store serve registry"))
+		Expect(*unit).To(ContainSubstring("ExecStart=/usr/bin/hauler store serve registry"))
 		Expect(*unit).To(ContainSubstring("--store /var/lib/elemental/registry/store"))
 		Expect(*unit).To(ContainSubstring("--directory /var/lib/elemental/registry/registry"))
 		Expect(*unit).To(ContainSubstring("--port 6545"))
@@ -252,7 +246,7 @@ data:
 		rm.CorePlatform.Components.Kubernetes = nil
 		m := NewManager(system, &helmConfiguratorMock{}, WithImageStore(store))
 
-		hosts, err := m.configureElementalRegistry(context.Background(), conf, rm, output, butaneCfg)
+		hosts, err := m.configureEmbeddedRegistry(context.Background(), conf, rm, output, butaneCfg)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(hosts).To(BeNil())
 		Expect(store.saved).To(BeEmpty())
@@ -261,27 +255,27 @@ data:
 
 	It("Fails when a registry login fails", func() {
 		store.loginErr = fmt.Errorf("unauthorized")
-		m := NewManager(system, &helmConfiguratorMock{}, WithImageStore(store), WithPlatform("linux/arm64"))
+		m := NewManager(system, &helmConfiguratorMock{}, WithImageStore(store))
 
-		_, err := m.configureElementalRegistry(context.Background(), conf, rm, output, butaneCfg)
+		_, err := m.configureEmbeddedRegistry(context.Background(), conf, rm, output, butaneCfg)
 		Expect(err).To(MatchError(ContainSubstring("unauthorized")))
 		Expect(store.saved).To(BeEmpty())
 	})
 
 	It("Fails when an image cannot be saved", func() {
 		store.saveErr = fmt.Errorf("manifest unknown")
-		m := NewManager(system, &helmConfiguratorMock{}, WithImageStore(store), WithPlatform("linux/arm64"))
+		m := NewManager(system, &helmConfiguratorMock{}, WithImageStore(store))
 
-		_, err := m.configureElementalRegistry(context.Background(), conf, rm, output, butaneCfg)
+		_, err := m.configureEmbeddedRegistry(context.Background(), conf, rm, output, butaneCfg)
 		Expect(err).To(MatchError(ContainSubstring("embedding image busybox:1.36")))
 		Expect(err).To(MatchError(ContainSubstring("manifest unknown")))
 	})
 
 	It("Fails on a malformed local manifest", func() {
 		Expect(fs.WriteFile(localManifest, []byte("kind: [broken"), vfs.FilePerm)).To(Succeed())
-		m := NewManager(system, &helmConfiguratorMock{}, WithImageStore(store), WithPlatform("linux/arm64"))
+		m := NewManager(system, &helmConfiguratorMock{}, WithImageStore(store))
 
-		_, err := m.configureElementalRegistry(context.Background(), conf, rm, output, butaneCfg)
+		_, err := m.configureEmbeddedRegistry(context.Background(), conf, rm, output, butaneCfg)
 		Expect(err).To(MatchError(ContainSubstring("reading manifest")))
 	})
 

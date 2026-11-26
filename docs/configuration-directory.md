@@ -28,6 +28,7 @@ manifestURI: file:///path/to/manifest/suse-solution-manifest.yaml
 components:
   kubernetes: {}
   helm:
+    - chart: elemental-lifecycle-manager
     - chart: foo
       valuesFile: foo.yaml
     - chart: bar
@@ -42,6 +43,8 @@ components:
 * `components` - Optional; Components to explicitly enable from the Core Platform base.
   * `kubernetes` - Optional; If set (even if empty), enables Kubernetes distribution installation. If you also define cluster configuration, Helm charts or Kubernetes manifests, a cluster will be automatically enabled and this field is not required.
   * `helm` - Optional; List of Helm chart components that need to be enabled from the Core Platform base.
+    When Kubernetes is enabled, the `elemental-lifecycle-manager` chart must be listed. It must therefore be provided by the
+    Core Platform release manifest.
     * `chart` - Required; The actual chart that needs to be enabled, as seen in the Core Platform release manifest.
     * `valuesFile` - Optional; The name of the [Helm values file](https://helm.sh/docs/chart_template_guide/values_files/) (not including the path) that will be applied to this chart. The values file must be placed under `kubernetes/helm/values` for the specified chart.
     * `credentials` - Required for authenticated repositories/registries.
@@ -122,9 +125,10 @@ helm:
       targetNamespace: "cattle-system"
       repositoryName: "rancher"
       valuesFile: rancher.yaml
-    - name: "cert-manager-fips"
+    - name: "nginx"
+      releaseName: "nginx-public"
       version: "1.19.3"
-      targetNamespace: "cmf-system"
+      targetNamespace: "web"
       repositoryName: "application-collection"
       apiVersions:
         - batch/v1
@@ -153,7 +157,7 @@ network:
     apiHost: api.cluster01.example.com
     apiVIP6: fd12:3456:789a::21
     apiVIPMode: managed
-elementalEmbeddedRegistry:
+embeddedRegistry:
   containerImages:
     - name: registry.rancher.com/rancher/shell:v0.5.0
     - name: nginx:stable@sha256:b03c8dfc241047d827e1e14d69533205b387d476d97ef7efce58605a6c3acb84
@@ -168,6 +172,7 @@ elementalEmbeddedRegistry:
 * `helm` - Optional; Defines a set of Helm charts and their sources.
   * `charts` - Required; Defines a list of Helm charts to be deployed on the cluster.
     * `name` - Required; Name of the Helm chart, as seen in the repository.
+    * `releaseName` - Optional; Helm release name of the chart, also used as the name of its HelmChart resource. Defaults to `name`. Must be unique across all Helm charts, and must differ from the names of all Helm charts defined in the release manifests, whether enabled or not, as the Elemental Lifecycle Manager upgrades any release with such a name to the release manifest chart. This allows deploying the same chart more than once, in the same or in different namespaces, unless the chart creates cluster-wide resources with fixed names, such as CRDs.
     * `version` - Required; Version of the Helm chart, as seen in the repository.
     * `targetNamespace` - Required; Namespace where the Helm chart will be deployed.
     * `repositoryName` - Required; Name of the source repository that this chart can be retrieved from.
@@ -190,7 +195,7 @@ elementalEmbeddedRegistry:
   * `apiVIP6` -  Required for multi-node clusters if not using `apiVIP`; Specifies the IPv6 address which will serve as the cluster LoadBalancer.
   * `apiHost` - Optional; Specifies the domain address for accessing the cluster.
   * `apiVIPMode` - Optional; Specifies how the API VIP will be handled. Supported values: `managed` (default), `external`. `managed` uses MetalLB to serve the desired IPv4/IPv6 addresses. `external` expects a user-defined third-party loadbalancing mechanism for IPv4/IPv6 address handling.
-* `elementalEmbeddedRegistry` - Optional; Allows you to specify additional container images to be part of the final air-gapped build.
+* `embeddedRegistry` - Optional; Allows you to specify additional container images to be part of the final air-gapped build.
   * `containerImages` - Optional; Defines list of container images to embed, deduplicated with the ones discovered automatically from Helm charts and Kubernetes manifests.
     * `name` - Required; Specifies the name, with a tag or digest, of a container image to be air-gapped.
   * `registries` - Optional, only required for authenticated registries; Defines a list of registries along with the credentials used to pull container images from them.
@@ -198,6 +203,8 @@ elementalEmbeddedRegistry:
     * `credentials` - Required;
       * `username` - Required; Defines the username for accessing the specified registry.
       * `password` - Required; Defines the password for accessing the specified registry.
+
+For more information on air-gapped images, refer to the [Air-gapped Deployments](airgapped-deployments.md) guide.
 
 ### Kubernetes Directory
 

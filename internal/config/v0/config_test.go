@@ -378,6 +378,51 @@ iso:
 		Expect(err.Error()).To(ContainSubstring(`chart "elemental-lifecycle-manager" must be listed under components.helm in release.yaml when Kubernetes is enabled`))
 	})
 
+	It("Validates the Helm chart release name", func() {
+		for _, tc := range []struct {
+			name  string
+			valid bool
+		}{
+			{name: "foo-bar.1", valid: true},
+			{name: "Foo", valid: false},
+			{name: strings.Repeat("a", 54), valid: false},
+			{name: "-foo", valid: false},
+		} {
+			clusterYAML := strings.Replace(kubernetesClusterYAML, `      repositoryName: "foo-charts"`, `      repositoryName: "foo-charts"
+      releaseName: "`+tc.name+`"`, 1)
+			Expect(fs.WriteFile(configDir.ClusterFilepath(), []byte(clusterYAML), 0644)).To(Succeed())
+
+			conf, err := Parse(fs, configDir)
+			if tc.valid {
+				Expect(err).NotTo(HaveOccurred(), tc.name)
+				Expect(conf.Kubernetes.Helm.Charts[0].GetReleaseName()).To(Equal(tc.name))
+				continue
+			}
+
+			Expect(err).To(HaveOccurred(), tc.name)
+			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(`field "Configuration.Kubernetes.Helm.Charts[0].ReleaseName" must be a valid Helm release name of at most 53 lowercase letters, digits, '-' or '.', but got %q`, tc.name)))
+		}
+	})
+
+	It("Validates the Helm chart release name that defaults to the chart name", func() {
+		clusterYAML := strings.Replace(kubernetesClusterYAML, `    - name: "foo"`, `    - name: "`+strings.Repeat("a", 54)+`"`, 1)
+		Expect(fs.WriteFile(configDir.ClusterFilepath(), []byte(clusterYAML), 0644)).To(Succeed())
+
+		_, err := Parse(fs, configDir)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(`field "Configuration.Kubernetes.Helm.Charts[0].Name" with value %q is invalid as a Helm release name (at most 53 lowercase letters, digits, '-' or '.'), set releaseName instead`, strings.Repeat("a", 54))))
+		Expect(err.Error()).NotTo(ContainSubstring("ReleaseName"))
+
+		// A valid releaseName allows using the chart
+		clusterYAML = strings.Replace(clusterYAML, `      repositoryName: "foo-charts"`, `      repositoryName: "foo-charts"
+      releaseName: "foo"`, 1)
+		Expect(fs.WriteFile(configDir.ClusterFilepath(), []byte(clusterYAML), 0644)).To(Succeed())
+
+		conf, err := Parse(fs, configDir)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(conf.Kubernetes.Helm.Charts[0].GetReleaseName()).To(Equal("foo"))
+	})
+
 	It("Fails on invalid apiVIPMode value", func() {
 		clusterYAML := strings.Replace(kubernetesClusterYAML, "  apiVIP: 192.168.120.100.sslip.io", "  apiVIP: 192.168.120.100.sslip.io\n  apiVIPMode: invalid", 1)
 		Expect(fs.WriteFile(configDir.ClusterFilepath(), []byte(clusterYAML), 0644)).To(Succeed())

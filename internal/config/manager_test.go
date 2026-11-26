@@ -74,6 +74,15 @@ func findFileContentsInConfig(config *butane.Config, name string) *string {
 	return nil
 }
 
+func findFileModeInConfig(config *butane.Config, name string) *int {
+	for _, f := range config.Storage.Files {
+		if f.Path == name {
+			return f.Mode
+		}
+	}
+	return nil
+}
+
 type resolverMock struct {
 	resolveFunc func(uri string) (*resolver.ResolvedManifest, error)
 }
@@ -338,7 +347,7 @@ passwd:
 		r, err := m.ConfigureComponents(context.Background(), conf, output)
 		Expect(r).To(BeNil())
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("/_out/store/release-manifests: no such file or directory"))
+		Expect(err.Error()).To(ContainSubstring("resolving release manifest at uri 'missing'"))
 
 		By("Using custom manifest resolver")
 		m = NewManager(

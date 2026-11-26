@@ -43,13 +43,14 @@ const (
 	registryStoreDir     = "store"
 	registryBackendDir   = "registry"
 	haulerBinaryName     = "hauler"
+	registryBinary       = "/usr/bin/hauler"
 	dockerHubHost        = "docker.io"
 )
 
 //go:embed templates/elemental-registry.service.tpl
 var registryUnitTpl string
 
-func (m *Manager) configureElementalRegistry(ctx context.Context, conf *image.Configuration, rm *resolver.ResolvedManifest, output Output, butaneCfg *butane.Config) ([]string, error) {
+func (m *Manager) configureEmbeddedRegistry(ctx context.Context, conf *image.Configuration, rm *resolver.ResolvedManifest, output Output, butaneCfg *butane.Config) ([]string, error) {
 	logger := m.system.Logger()
 	fs := m.system.FS()
 
@@ -68,7 +69,7 @@ func (m *Manager) configureElementalRegistry(ctx context.Context, conf *image.Co
 		return nil, fmt.Errorf("creating registry directory: %w", err)
 	}
 
-	if settings := conf.Kubernetes.ElementalEmbeddedRegistry; settings != nil {
+	if settings := conf.Kubernetes.EmbeddedRegistry; settings != nil {
 		for _, registry := range settings.Registries {
 			if registry.Credentials == nil {
 				continue
@@ -80,7 +81,7 @@ func (m *Manager) configureElementalRegistry(ctx context.Context, conf *image.Co
 		}
 	}
 
-	platform := m.platform
+	platform := m.system.Platform().String()
 
 	archivesDir := filepath.Join(output.RegistryStoreDir(), "archives")
 	if err = vfs.MkdirAll(fs, archivesDir, vfs.DirPerm); err != nil {
@@ -108,24 +109,6 @@ func (m *Manager) configureElementalRegistry(ctx context.Context, conf *image.Co
 
 	if err = m.imageStore.WriteEmptyStore(filepath.Join(registryDir, registryStoreDir)); err != nil {
 		return nil, err
-	}
-
-	haulerBinary, err := m.imageStore.HaulerPath(platform)
-	if err != nil {
-		return nil, err
-	}
-
-	haulerTarget := filepath.Join(output.OverlaysDir(), image.RegistryBinaryPath())
-	if err = vfs.MkdirAll(fs, filepath.Dir(haulerTarget), vfs.DirPerm); err != nil {
-		return nil, fmt.Errorf("creating hauler binary directory: %w", err)
-	}
-
-	if err = vfs.CopyFile(fs, haulerBinary, haulerTarget); err != nil {
-		return nil, fmt.Errorf("copying hauler binary: %w", err)
-	}
-
-	if err = fs.Chmod(haulerTarget, 0o755); err != nil {
-		return nil, fmt.Errorf("setting hauler binary permissions: %w", err)
 	}
 
 	if err = appendRegistryUnit(butaneCfg); err != nil {
@@ -177,7 +160,7 @@ func appendRegistryUnit(butaneCfg *butane.Config) error {
 		Backend  string
 		Port     string
 	}{
-		Hauler:   filepath.Join("/", image.RegistryBinaryPath()),
+		Hauler:   registryBinary,
 		StoreDir: filepath.Join(registryDir, registryStoreDir),
 		Backend:  filepath.Join(registryDir, registryBackendDir),
 		Port:     registryPort,
@@ -243,7 +226,7 @@ func (m *Manager) collectContainerImages(rm *resolver.ResolvedManifest, conf *im
 		}
 	}
 
-	if settings := conf.Kubernetes.ElementalEmbeddedRegistry; settings != nil {
+	if settings := conf.Kubernetes.EmbeddedRegistry; settings != nil {
 		for _, img := range settings.ContainerImages {
 			images[img.Name] = struct{}{}
 		}

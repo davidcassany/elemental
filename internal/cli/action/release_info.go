@@ -45,6 +45,7 @@ import (
 const (
 	versionHdr = "Version"
 	sourceHdr  = "Source"
+	unknown    = "Unknown"
 )
 
 // to keep a track if user requested for markdown output
@@ -52,7 +53,6 @@ var markdown bool
 
 type basicInfo struct {
 	Name         string
-	Version      string
 	CreationDate string
 	Source       string
 }
@@ -114,7 +114,7 @@ func resolveManifest(system *sys.System, uri string, local bool) (*resolver.Reso
 		}
 	}()
 
-	res, err := manifestResolver(system.FS(), output, local)
+	res, err := manifestResolver(system, output, local)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func argSourceType(s *sys.System, arg string) (source.ReleaseManifestSourceType,
 	return source.OCI, nil
 }
 
-func manifestResolver(fs vfs.FS, out config.Output, local bool) (*resolver.Resolver, error) {
+func manifestResolver(s *sys.System, out config.Output, local bool) (*resolver.Resolver, error) {
 	const (
 		globPattern = "release_manifest*.yaml"
 	)
@@ -158,11 +158,11 @@ func manifestResolver(fs vfs.FS, out config.Output, local bool) (*resolver.Resol
 	}
 
 	manifestsDir := out.ReleaseManifestsStoreDir()
-	if err := vfs.MkdirAll(fs, manifestsDir, 0700); err != nil {
+	if err := vfs.MkdirAll(s.FS(), manifestsDir, 0700); err != nil {
 		return nil, fmt.Errorf("creating release manifest store '%s': %w", manifestsDir, err)
 	}
 
-	extr, err := extractor.New(searchPaths, extractor.WithStore(manifestsDir), extractor.WithLocal(local), extractor.WithFS(fs))
+	extr, err := extractor.New(s, searchPaths, extractor.WithStore(manifestsDir), extractor.WithLocal(local))
 	if err != nil {
 		return nil, fmt.Errorf("initializing OCI release manifest extractor: %w", err)
 	}
@@ -227,29 +227,33 @@ func printBasicData(cm *core.ReleaseManifest, sm *solution.ReleaseManifest, arg 
 	var cmBasic, smBasic *basicInfo
 	table := newTable(markdown, out)
 
-	cmBasic = &basicInfo{
-		Name:         cm.Metadata.Name,
-		CreationDate: cm.Metadata.CreationDate,
-		Source:       arg,
+	cmBasic = &basicInfo{Source: arg}
+	elementalVersion := unknown
+	if cm.Metadata != nil {
+		cmBasic.Name = cm.Metadata.Name
+		cmBasic.CreationDate = cm.Metadata.CreationDate
+		if cm.Metadata.Elemental != nil {
+			elementalVersion = cm.Metadata.Elemental.Version
+		}
 	}
 	if sm != nil {
 		// we are dealing with a solution manifest
-		smBasic = &basicInfo{
-			Name:         sm.Metadata.Name,
-			CreationDate: sm.Metadata.CreationDate,
-			Source:       arg,
+		smBasic = &basicInfo{Source: arg}
+		if sm.Metadata != nil {
+			smBasic.Name = sm.Metadata.Name
+			smBasic.CreationDate = sm.Metadata.CreationDate
 		}
 		cmBasic.Source = sm.CorePlatform.Image
 
 		table.Header([]string{"Attribute", "Core Platform (Base)", "Solution Manifest (Extension)"})
 		data = append(data, []string{"Name", cmBasic.Name, smBasic.Name})
-		data = append(data, []string{"Release Date", cmBasic.CreationDate, sm.Metadata.CreationDate})
+		data = append(data, []string{"Release Date", cmBasic.CreationDate, smBasic.CreationDate})
 		data = append(data, []string{sourceHdr, cmBasic.Source, smBasic.Source})
 	} else {
 		// we are dealing with a core manifest
 		table.Header([]string{"Attribute", "Core Platform (Base)"})
 		data = append(data, []string{"Name", cmBasic.Name})
-		data = append(data, []string{versionHdr, cmBasic.Version})
+		data = append(data, []string{"Elemental Version", elementalVersion})
 		data = append(data, []string{"Release Date", cmBasic.CreationDate})
 		data = append(data, []string{sourceHdr, cmBasic.Source})
 
@@ -262,7 +266,7 @@ func printInfraData(cm *core.ReleaseManifest, out io.Writer) error {
 	table := newTable(markdown, out)
 	table.Header([]string{"Infrastructure Components", versionHdr, sourceHdr})
 
-	osVersion := "Unknown"
+	osVersion := unknown
 	if cm.Components.OperatingSystem.Image.Base != "" {
 		parts := strings.Split(cm.Components.OperatingSystem.Image.Base, ":")
 		if len(parts) > 1 {
@@ -271,7 +275,7 @@ func printInfraData(cm *core.ReleaseManifest, out io.Writer) error {
 	}
 	data = append(data, []string{"Operating System", osVersion, cm.Components.OperatingSystem.Image.Base})
 
-	installerVersion := "Unknown"
+	installerVersion := unknown
 	if cm.Components.OperatingSystem.Image.ISO != "" {
 		parts := strings.Split(cm.Components.OperatingSystem.Image.ISO, ":")
 		if len(parts) > 1 {

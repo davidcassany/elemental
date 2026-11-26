@@ -18,9 +18,11 @@ limitations under the License.
 package config
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -263,7 +265,7 @@ var _ = Describe("Helm tests", Label("helm"), func() {
 				},
 			}
 
-			h := &Helm{ValuesResolver: resolver}
+			h := &Helm{ValuesResolver: resolver, Logger: logger}
 			charts, err := h.Configure(context.Background(), conf, rm, config)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError("retrieving helm charts: collecting user helm charts: repository not found for chart: apache"))
@@ -299,7 +301,7 @@ var _ = Describe("Helm tests", Label("helm"), func() {
 				},
 			}
 
-			h := &Helm{ValuesResolver: resolver}
+			h := &Helm{ValuesResolver: resolver, Logger: logger}
 			charts, err := h.Configure(context.Background(), conf, rm, config)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError("retrieving helm charts: creating helm chart auth map: helm repository 'apache-repo' defined multiple times"))
@@ -386,14 +388,19 @@ var _ = Describe("Helm tests", Label("helm"), func() {
 				},
 			}
 
+			buffer := &bytes.Buffer{}
 			h := &Helm{
 				ValuesResolver: resolver,
 				RelativePath:   helmPath,
-				Logger:         logger,
+				Logger:         log.New(log.WithBuffer(buffer)),
 			}
 
 			charts, err := h.Configure(context.Background(), conf, rm, config)
 			Expect(err).NotTo(HaveOccurred())
+
+			// User charts are logged with their version and repository
+			Expect(buffer.String()).To(ContainSubstring("Deploying Helm chart apache version 10.7.0 from https://example.com/apache/"))
+			Expect(buffer.String()).To(ContainSubstring("Deploying Helm chart nginx version 1.29.3 from oci://example.com/web/"))
 			Expect(charts).To(ConsistOf(
 				"/helm/metallb.yaml",
 				"/helm/endpoint-copier-operator.yaml",
@@ -534,6 +541,113 @@ spec:
 			Expect(*data).To(Equal(contents))
 		})
 
+		It("Deploys the same user Helm chart twice with different release names", func() {
+			fs, cleanup, err := sysmock.TestFS(map[string]string{
+				filepath.Join(overlaysPath, helmPath, "blue-values.yaml"):  "color: blue\n",
+				filepath.Join(overlaysPath, helmPath, "green-values.yaml"): "color: green\n",
+			})
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(cleanup)
+
+			conf := &image.Configuration{
+				Release: release.Release{
+					Components: release.Components{
+						HelmCharts: []release.HelmChart{{Name: "elemental-lifecycle-manager"}},
+					},
+				},
+				Kubernetes: kubernetes.Kubernetes{
+					Helm: &kubernetes.Helm{
+						Charts: []*kubernetes.HelmChart{
+							{
+								Name:            "apache",
+								ReleaseName:     "apache-blue",
+								RepositoryName:  "apache",
+								TargetNamespace: "web",
+								Version:         "10.7.0",
+								ValuesFile:      "blue-values.yaml",
+							},
+							{
+								Name:            "apache",
+								ReleaseName:     "apache-green",
+								RepositoryName:  "apache",
+								TargetNamespace: "web",
+								Version:         "10.7.0",
+								ValuesFile:      "green-values.yaml",
+							},
+						},
+						Repositories: []*kubernetes.HelmRepository{
+							{
+								Name:        "apache",
+								URL:         "https://example.com/apache/",
+								Credentials: &auth.Credentials{Username: "apache-user", Password: "apache-pass"},
+							},
+						},
+					},
+				},
+			}
+
+			h := &Helm{
+				ValuesResolver: &helm.ValuesResolver{ValuesDir: filepath.Join(overlaysPath, helmPath), FS: fs},
+				RelativePath:   helmPath,
+				Logger:         logger,
+			}
+
+			charts, err := h.Configure(context.Background(), conf, rm, config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(charts).To(ContainElements("/helm/apache-blue.yaml", "/helm/apache-green.yaml"))
+
+			for release, color := range map[string]string{"apache-blue": "blue", "apache-green": "green"} {
+				data := findFileContentsInConfig(config, filepath.Join("/", helmPath, release+".yaml"))
+				Expect(data).NotTo(BeNil())
+
+				var crd helm.CRD
+				Expect(yaml.Unmarshal([]byte(*data), &crd)).To(Succeed())
+				Expect(crd.Metadata.Name).To(Equal(release))
+				Expect(crd.Spec.Chart).To(Equal("apache"))
+				Expect(crd.Spec.ValuesContent).To(Equal("color: " + color + "\n"))
+				Expect(crd.Spec.RepositoryAuthSecret.Name).To(Equal(release + "-auth"))
+				Expect(findFileContentsInConfig(config, filepath.Join("/", image.KubernetesManifestsPath(), release+"-auth-priority.yaml"))).NotTo(BeNil())
+			}
+		})
+
+		DescribeTable("Fails on Helm charts sharing a release name",
+			func(charts []*kubernetes.HelmChart, expected string) {
+				conf := &image.Configuration{
+					Release: release.Release{
+						Components: release.Components{
+							HelmCharts: []release.HelmChart{{Name: "elemental-lifecycle-manager"}},
+						},
+					},
+					Kubernetes: kubernetes.Kubernetes{
+						Helm: &kubernetes.Helm{
+							Charts:       charts,
+							Repositories: []*kubernetes.HelmRepository{{Name: "apache", URL: "https://example.com/apache/"}},
+						},
+					},
+				}
+
+				h := &Helm{ValuesResolver: &valuesResolverMock{}, Logger: logger}
+				_, err := h.Configure(context.Background(), conf, rm, config)
+				Expect(err).To(MatchError(ContainSubstring(expected)))
+			},
+			Entry("the same chart twice without a release name",
+				[]*kubernetes.HelmChart{
+					{Name: "apache", RepositoryName: "apache", TargetNamespace: "blue", Version: "10.7.0"},
+					{Name: "apache", RepositoryName: "apache", TargetNamespace: "green", Version: "10.7.0"},
+				},
+				`release name "apache" of helm chart apache is used by another helm chart, set a unique releaseName in kubernetes/cluster.yaml`),
+			Entry("a release name used by an enabled release manifest chart",
+				[]*kubernetes.HelmChart{
+					{Name: "apache", ReleaseName: "elemental-lifecycle-manager", RepositoryName: "apache", TargetNamespace: "web", Version: "10.7.0"},
+				},
+				`release name "elemental-lifecycle-manager" of helm chart apache is reserved for the helm chart of the release manifests, set a different releaseName in kubernetes/cluster.yaml`),
+			Entry("a release name used by a release manifest chart that is not enabled",
+				[]*kubernetes.HelmChart{
+					{Name: "kubevirt", RepositoryName: "apache", TargetNamespace: "kubevirt", Version: "1.0.0"},
+				},
+				`release name "kubevirt" of helm chart kubevirt is reserved for the helm chart of the release manifests`),
+		)
+
 		It("Collects and writes core, solution and user Helm charts with auth to the FS", func() {
 			fs, cleanup, err := sysmock.TestFS(map[string]string{})
 			Expect(err).NotTo(HaveOccurred())
@@ -650,6 +764,8 @@ spec:
 			data := findFileContentsInConfig(config, filepath.Join("/", image.KubernetesManifestsPath(), "apache-auth-priority.yaml"))
 			Expect(data).NotTo(BeNil())
 			Expect(*data).To(Equal(apacheAuthSecret))
+			Expect(findFileModeInConfig(config, filepath.Join("/", image.KubernetesManifestsPath(), "apache-auth-priority.yaml"))).To(HaveValue(Equal(0o600)))
+			Expect(findFileModeInConfig(config, "/helm/apache.yaml")).To(HaveValue(Equal(0o600)))
 
 			data = findFileContentsInConfig(config, filepath.Join("/", image.KubernetesManifestsPath(), "postgres-auth-priority.yaml"))
 			Expect(data).NotTo(BeNil())
@@ -843,6 +959,15 @@ spec:
 
 			Expect(repositories["suse-core"]).To(Equal("https://example.com/suse-core"))
 			Expect(repositories["rancher-charts"]).To(Equal("https://charts.rancher.io/"))
+		})
+
+		It("Logs each enabled Helm chart once", func() {
+			buffer := &bytes.Buffer{}
+			// neuvector-crd is enabled both explicitly and as a dependency of neuvector
+			_, _, err := enabledHelmCharts(rm, []release.HelmChart{{Name: "neuvector"}, {Name: "neuvector-crd"}}, log.New(log.WithBuffer(buffer)))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.Count(buffer.String(), "Deploying Helm chart neuvector-crd from solution release")).To(Equal(1))
+			Expect(strings.Count(buffer.String(), "Deploying Helm chart neuvector from solution release")).To(Equal(1))
 		})
 
 		It("Successfully filters enabled Helm chart", func() {
@@ -1173,5 +1298,21 @@ webhook:
 				Expect(chart.DependsOn).ToNot(ContainElements(sucDep, cmDep))
 			})
 		})
+	})
+
+	It("fails when the core platform does not define LCM", func() {
+		conf.Release.Components.HelmCharts = []release.HelmChart{{Name: "elemental-lifecycle-manager"}}
+		rm.CorePlatform.Components.Helm.Charts = rm.CorePlatform.Components.Helm.Charts[1:]
+
+		err := h.evaluateLCMDeps(rm, conf)
+		Expect(err).To(MatchError(`chart "elemental-lifecycle-manager" is not defined in the core platform release manifest`))
+	})
+
+	It("fails when the core platform does not define any Helm charts", func() {
+		conf.Release.Components.HelmCharts = []release.HelmChart{{Name: "elemental-lifecycle-manager"}}
+		rm.CorePlatform.Components.Helm = nil
+
+		err := h.evaluateLCMDeps(rm, conf)
+		Expect(err).To(MatchError(`chart "elemental-lifecycle-manager" is not defined in the core platform release manifest`))
 	})
 })

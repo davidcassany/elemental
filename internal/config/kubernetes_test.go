@@ -557,6 +557,11 @@ data:
 			data = findFileContentsInConfig(config, filepath.Join("/", image.KubernetesManifestsPath(), "example-auth-priority.yaml"))
 			Expect(data).NotTo(BeNil())
 			Expect(*data).To(ContainSubstring(expectedExampleManifestContents))
+
+			// Files holding the cluster token or credentials are only readable by root
+			for _, name := range []string{"server.yaml", "init.yaml", "agent.yaml"} {
+				Expect(findFileModeInConfig(config, filepath.Join("/", image.KubernetesPath(), name))).To(HaveValue(Equal(0o600)), name)
+			}
 		})
 	})
 
@@ -582,6 +587,7 @@ data:
 
 			system, err = sys.NewSystem(
 				sys.WithLogger(log.New(log.WithDiscardAll())),
+				sys.WithPlatform("linux/amd64"),
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -605,7 +611,7 @@ data:
 				Kubernetes: kubernetes.Kubernetes{Config: kubernetes.Config{ServerFilePath: serverConfig}},
 			}
 
-			manager = NewManager(system, nil, WithPlatform("linux/amd64"))
+			manager = NewManager(system, nil)
 		})
 
 		It("Selects the core and the configured CNI images", func() {
@@ -639,9 +645,11 @@ data:
 		})
 
 		It("Fails when the lists are for another architecture", func() {
-			manager = NewManager(system, nil, WithPlatform("linux/arm64"))
+			armSystem, err := system.ForPlatform("linux/arm64")
+			Expect(err).ToNot(HaveOccurred())
+			manager = NewManager(armSystem, nil)
 
-			_, err := manager.kubernetesImages(rm, conf, output)
+			_, err = manager.kubernetesImages(rm, conf, output)
 			Expect(err).To(MatchError(`kubernetes image set "core" is not shipped by registry.example.com/rke2:1.35_1.0: rke2-images-core.linux-arm64.txt not found, available: `))
 		})
 

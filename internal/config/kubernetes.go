@@ -36,7 +36,6 @@ import (
 	"github.com/suse/elemental/v3/pkg/manifest/resolver"
 	"github.com/suse/elemental/v3/pkg/semverutil"
 	"github.com/suse/elemental/v3/pkg/sys"
-	"github.com/suse/elemental/v3/pkg/sys/platform"
 	"github.com/suse/elemental/v3/pkg/sys/vfs"
 )
 
@@ -108,17 +107,17 @@ func (m *Manager) configureKubernetes(
 		}
 	}
 
-	if conf.Kubernetes.ElementalEmbeddedRegistry != nil && !m.airgap {
-		return fmt.Errorf("elementalEmbeddedRegistry is configured but the --airgap flag is not present")
+	if conf.Kubernetes.EmbeddedRegistry != nil && !m.airgap {
+		return fmt.Errorf("embeddedRegistry is configured but the --airgap flag is not present")
 	}
 
 	var mirrorHosts []string
 	if m.airgap {
-		m.system.Logger().Info("Configuring elemental embedded registry")
+		m.system.Logger().Info("Configuring embedded registry")
 
-		mirrorHosts, err = m.configureElementalRegistry(ctx, conf, manifest, output, butaneCfg)
+		mirrorHosts, err = m.configureEmbeddedRegistry(ctx, conf, manifest, output, butaneCfg)
 		if err != nil {
-			return fmt.Errorf("configuring elemental embedded registry: %w", err)
+			return fmt.Errorf("configuring embedded registry: %w", err)
 		}
 	}
 
@@ -360,7 +359,7 @@ func appendRke2Configuration(s *sys.System, butaneCfg *butane.Config, k *kuberne
 		return fmt.Errorf("failed marshaling server config: %w", err)
 	}
 
-	butaneCfg.AddFileInline(filepath.Join(k8sPath, "server.yaml"), new(string(joiningServerBytes)), 0o644)
+	butaneCfg.AddFileInline(filepath.Join(k8sPath, "server.yaml"), new(string(joiningServerBytes)), 0o600)
 
 	if c.InitServerConfig != nil {
 		initServerBytes, err := marshalConfig(c.InitServerConfig)
@@ -368,7 +367,7 @@ func appendRke2Configuration(s *sys.System, butaneCfg *butane.Config, k *kuberne
 			return fmt.Errorf("failed marshaling init-server config: %w", err)
 		}
 
-		butaneCfg.AddFileInline(filepath.Join(k8sPath, "init.yaml"), new(string(initServerBytes)), 0o644)
+		butaneCfg.AddFileInline(filepath.Join(k8sPath, "init.yaml"), new(string(initServerBytes)), 0o600)
 	}
 
 	if c.AgentConfig != nil {
@@ -377,7 +376,7 @@ func appendRke2Configuration(s *sys.System, butaneCfg *butane.Config, k *kuberne
 			return fmt.Errorf("failed marshaling agent config: %w", err)
 		}
 
-		butaneCfg.AddFileInline(filepath.Join(k8sPath, "agent.yaml"), new(string(agentBytes)), 0o644)
+		butaneCfg.AddFileInline(filepath.Join(k8sPath, "agent.yaml"), new(string(agentBytes)), 0o600)
 	}
 
 	if c.RegistriesConfig != nil {
@@ -386,7 +385,7 @@ func appendRke2Configuration(s *sys.System, butaneCfg *butane.Config, k *kuberne
 			return fmt.Errorf("failed marshaling agent config: %w", err)
 		}
 
-		butaneCfg.AddFileInline(filepath.Join(k8sPath, "registries.yaml"), new(string(registriesBytes)), 0o644)
+		butaneCfg.AddFileInline(filepath.Join(k8sPath, "registries.yaml"), new(string(registriesBytes)), 0o600)
 	}
 
 	if k.Network.IsManagedInternally() {
@@ -453,10 +452,7 @@ func (m *Manager) kubernetesImages(rm *resolver.ResolvedManifest, conf *image.Co
 		return nil, fmt.Errorf("selecting kubernetes image sets: %w", err)
 	}
 
-	platform, err := platform.Parse(m.platform)
-	if err != nil {
-		return nil, fmt.Errorf("parsing platform %q: %w", m.platform, err)
-	}
+	platform := m.system.Platform()
 
 	fs := m.system.FS()
 	installDir := filepath.Join(output.OverlaysDir(), image.KubernetesInstallPath())
